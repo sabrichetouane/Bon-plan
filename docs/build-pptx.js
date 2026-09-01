@@ -308,14 +308,16 @@ blueChapterCover(pres, {
   const s = pres.addSlide();
   contentHeader(s, 'Besoins fonctionnels', 'SPÉCIFICATION');
   const items = [
-    'Authentification et gestion du profil utilisateur.',
+    'Inscription, connexion, réinitialisation du mot de passe, gestion du profil.',
     'Consultation des lieux par catégorie : Food, Coffee, Beach, Nature, Activity, Shopping.',
     'Recherche et filtres (par note, par budget, par favoris).',
     'Fiche détaillée d’un lieu : photos, description, avis, prix, contact.',
     'Carte interactive avec marqueurs colorés et fiche flottante.',
-    'Ajout / retrait de favoris et gestion d’un itinéraire journalier.',
+    'Ajout / retrait de favoris et planification d’itinéraires sur plusieurs jours.',
+    'Contribution : proposer un nouveau lieu avec ses propres photos, publier un avis noté.',
+    'Modération par un administrateur : approuver, masquer ou supprimer lieux, plans et avis.',
     'Partage, appel téléphonique direct, ouverture du site web.',
-    'Internationalisation EN / FR / AR et thème clair / sombre.',
+    'Internationalisation EN / FR / AR (avec mise en page RTL) et thème clair / sombre.',
   ];
   s.addText(
     items.map(t => ({ text: t, options: { bullet: { type: 'bullet' }, fontSize: 14, color: C.text, paraSpaceAfter: 6 } })),
@@ -331,12 +333,12 @@ blueChapterCover(pres, {
   contentHeader(s, 'Besoins non fonctionnels', 'SPÉCIFICATION');
 
   const grid = [
-    { title: 'Sécurité',      body: 'Authentification utilisateur, mots de passe hachés, communication HTTPS.' },
+    { title: 'Sécurité',      body: 'Mots de passe hachés (SHA-256 + sel), rôles utilisateur / administrateur, données locales privées à l’application.' },
     { title: 'Performance',   body: 'Démarrage rapide grâce à Expo, images en cache, navigation fluide.' },
-    { title: 'Fiabilité',     body: 'Application stable sans plantage, gestion d’erreurs réseau.' },
+    { title: 'Fiabilité',     body: 'Contraintes d’intégrité en base, transactions, fonctionnement complet hors ligne.' },
     { title: 'Simplicité',    body: 'Interface intuitive inspirée des standards iOS / Material Design.' },
     { title: 'Portabilité',   body: 'Une seule base de code React Native pour iOS, Android et Web.' },
-    { title: 'Accessibilité', body: 'Mode sombre, multilingue (EN/FR/AR), polices lisibles, contrastes.' },
+    { title: 'Accessibilité', body: 'Mode sombre, multilingue EN/FR/AR avec RTL, zones tactiles de 44 pt, textes redimensionnables.' },
   ];
   grid.forEach((g, i) => {
     const col = i % 3;
@@ -432,7 +434,13 @@ blueChapterCover(pres, {
 blueChapterCover(pres, {
   chapter: 'Réalisation',
   number: '04',
-  items: ['Environnement logiciel', 'Langages et frameworks', 'Captures d’écran'],
+  items: [
+    'Environnement logiciel',
+    'Langages et frameworks',
+    'Architecture et base de données',
+    'Rôles et modération',
+    'Captures d’écran',
+  ],
 });
 
 // ---------------------------------------------------------------------------
@@ -483,21 +491,230 @@ blueChapterCover(pres, {
     { label: 'JavaScript (ES6+)', detail: 'Langage principal — async / await, destructuration' },
     { label: 'React 19 + React Native 0.81', detail: 'Composants fonctionnels et hooks (useState, useMemo, useContext)' },
     { label: 'Expo SDK 54', detail: 'Build, Splash Screen, expo-linear-gradient, expo-asset' },
+    { label: 'expo-sqlite', detail: 'Base de données relationnelle embarquée — 10 tables' },
+    { label: 'expo-crypto', detail: 'Hachage SHA-256 des mots de passe, avec sel aléatoire' },
+    { label: 'expo-image-picker', detail: 'Import de photos depuis la galerie ou l’appareil photo' },
     { label: 'React Navigation 7', detail: 'Stack + Bottom Tabs pour la navigation entre écrans' },
     { label: 'react-native-maps', detail: 'Carte native Apple Maps / Google Maps avec marqueurs' },
     { label: '@expo/vector-icons (Ionicons)', detail: 'Bibliothèque d’icônes vectorielles' },
   ];
   s.addText(
     langs.map(l => ([
-      { text: l.label + '\n', options: { bold: true, fontSize: 16, color: C.text } },
-      { text: l.detail + '\n', options: { fontSize: 12, color: C.textSec, paraSpaceAfter: 10 } },
+      // 9 entries now instead of 6, so the type is a little smaller to keep
+      // the whole list on one slide.
+      { text: l.label + '\n', options: { bold: true, fontSize: 13, color: C.text } },
+      { text: l.detail + '\n', options: { fontSize: 10, color: C.textSec, paraSpaceAfter: 5 } },
     ])).flat(),
     { x: 0.8, y: 1.95, w: 11.7, h: 5, fontFace: FONT_BODY, lineSpacingMultiple: 1.2 }
   );
 }
 
 // ---------------------------------------------------------------------------
-// SLIDE 17 — Section divider: Conclusion et perspectives
+// SLIDE 17 — Architecture logicielle et base de données
+// ---------------------------------------------------------------------------
+{
+  const s = pres.addSlide();
+  contentHeader(s, 'Architecture et base de données', 'RÉALISATION');
+
+  // --- Left: the three layers, as a simple stack -----------------------------
+  const layers = [
+    { name: 'Écrans (screens/)', desc: '19 écrans — ne contiennent aucune requête SQL' },
+    { name: 'Composants partagés (components/)', desc: 'Carte, en-tête, champ, boutons — une seule définition' },
+    { name: 'Dépôts (db/*Repo.js)', desc: 'Toutes les requêtes SQL, regroupées par sujet' },
+    { name: 'SQLite (bonplan.db)', desc: 'Fichier unique sur le téléphone — 10 tables' },
+  ];
+  layers.forEach((l, i) => {
+    const y = 2.0 + i * 1.18;
+    const isDb = i === layers.length - 1;
+    s.addShape('roundRect', {
+      x: 0.7, y, w: 6.0, h: 1.0,
+      fill: { color: isDb ? C.primary : C.bgLight },
+      line: { color: isDb ? C.primary : C.border },
+      rectRadius: 0.1,
+    });
+    s.addText(l.name, {
+      x: 0.95, y: y + 0.12, w: 5.5, h: 0.4,
+      fontFace: FONT_HEAD, fontSize: 13, bold: true,
+      color: isDb ? C.white : C.text,
+    });
+    s.addText(l.desc, {
+      x: 0.95, y: y + 0.52, w: 5.5, h: 0.4,
+      fontFace: FONT_BODY, fontSize: 10,
+      color: isDb ? C.primarySoft : C.textSec,
+    });
+    // A downward arrow between the layers.
+    if (i < layers.length - 1) {
+      s.addText('▼', {
+        x: 3.5, y: y + 0.98, w: 0.4, h: 0.22,
+        fontFace: FONT_BODY, fontSize: 10, color: C.textMuted, align: 'center',
+      });
+    }
+  });
+
+  // --- Right: the tables -----------------------------------------------------
+  s.addText('Les 10 tables', {
+    x: 7.2, y: 1.95, w: 5.5, h: 0.35,
+    fontFace: FONT_HEAD, fontSize: 14, bold: true, color: C.text,
+  });
+
+  const tables = [
+    'users — comptes, rôle, langue, thème',
+    'session — qui est connecté sur ce téléphone',
+    'categories — les 6 catégories',
+    'places — les lieux + leur statut de modération',
+    'place_photos — la galerie de chaque lieu',
+    'favorites — clé primaire (user, lieu)',
+    'comments — les avis notés',
+    'plans / plan_items — les itinéraires',
+    'meta — indicateur d’initialisation',
+  ];
+  s.addText(
+    tables.map((t) => ({
+      text: t,
+      options: { bullet: { type: 'bullet' }, fontSize: 11, color: C.text, paraSpaceAfter: 5 },
+    })),
+    { x: 7.4, y: 2.4, w: 5.3, h: 3.6, fontFace: FONT_BODY, lineSpacingMultiple: 1.15 }
+  );
+
+  s.addText(
+    'Règle d’architecture : un écran n’écrit jamais de SQL. Il appelle un dépôt. ' +
+    'Remplacer SQLite par une API distante ne modifierait que le dossier db/.',
+    { x: 0.7, y: 6.85, w: 12, h: 0.35, fontFace: FONT_BODY, fontSize: 10, italic: true, color: C.textMuted }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SLIDE 18 — Rôles et modération
+// ---------------------------------------------------------------------------
+{
+  const s = pres.addSlide();
+  contentHeader(s, 'Rôles et modération du contenu', 'RÉALISATION');
+
+  // Two role cards, side by side.
+  const roles = [
+    {
+      x: 0.7,
+      title: 'Utilisateur',
+      color: C.bgLight,
+      textColor: C.text,
+      lines: [
+        'Consulter, rechercher, filtrer les lieux',
+        'Ajouter aux favoris',
+        'Publier et modifier un avis noté',
+        'Planifier des itinéraires sur plusieurs jours',
+        'Proposer un nouveau lieu, avec ses photos',
+      ],
+    },
+    {
+      x: 6.95,
+      title: 'Administrateur',
+      color: C.primarySoft,
+      textColor: C.text,
+      lines: [
+        'Tout ce que fait un utilisateur',
+        'Approuver ou rejeter les lieux proposés',
+        'Masquer un lieu, un plan ou un avis',
+        'Supprimer définitivement un contenu',
+        'Créer des comptes et attribuer les rôles',
+      ],
+    },
+  ];
+
+  roles.forEach((r) => {
+    s.addShape('roundRect', {
+      x: r.x, y: 1.9, w: 5.7, h: 3.1,
+      fill: { color: r.color }, line: { color: C.border }, rectRadius: 0.12,
+    });
+    s.addText(r.title, {
+      x: r.x + 0.35, y: 2.05, w: 5.0, h: 0.45,
+      fontFace: FONT_HEAD, fontSize: 17, bold: true, color: C.primary,
+    });
+    s.addText(
+      r.lines.map((l) => ({
+        text: l,
+        options: { bullet: { type: 'bullet' }, fontSize: 11, color: r.textColor, paraSpaceAfter: 5 },
+      })),
+      { x: r.x + 0.45, y: 2.55, w: 4.9, h: 2.3, fontFace: FONT_BODY, lineSpacingMultiple: 1.15 }
+    );
+  });
+
+  // The moderation states, as a row of three pills.
+  s.addText('Cycle de vie d’un contenu proposé', {
+    x: 0.7, y: 5.25, w: 12, h: 0.35,
+    fontFace: FONT_HEAD, fontSize: 14, bold: true, color: C.text,
+  });
+
+  const states = [
+    { label: 'En attente', desc: 'visible par son auteur\net les administrateurs' },
+    { label: 'Approuvé', desc: 'visible par tout le monde' },
+    { label: 'Masqué', desc: 'retiré de l’application,\nconservé en base' },
+  ];
+  states.forEach((st, i) => {
+    const x = 0.7 + i * 4.15;
+    s.addShape('roundRect', {
+      x, y: 5.7, w: 3.8, h: 1.0,
+      fill: { color: C.white }, line: { color: C.primary }, rectRadius: 0.5,
+    });
+    s.addText(st.label, {
+      x, y: 5.82, w: 3.8, h: 0.3,
+      fontFace: FONT_HEAD, fontSize: 13, bold: true, color: C.primary, align: 'center',
+    });
+    s.addText(st.desc, {
+      x, y: 6.12, w: 3.8, h: 0.5,
+      fontFace: FONT_BODY, fontSize: 9, color: C.textSec, align: 'center',
+    });
+    if (i < states.length - 1) {
+      s.addText('→', {
+        x: x + 3.85, y: 6.0, w: 0.3, h: 0.3,
+        fontFace: FONT_BODY, fontSize: 14, color: C.textMuted, align: 'center',
+      });
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// SLIDE 19 — Captures d'écran
+// ---------------------------------------------------------------------------
+{
+  const s = pres.addSlide();
+  contentHeader(s, 'Captures d’écran', 'RÉALISATION');
+
+  // The mockups are 750x1500 (a 1:2 phone shape), so a 1.55in width needs a
+  // 3.1in height to keep them undistorted.
+  const shots = [
+    { file: 'mockup-home.png', label: 'Accueil' },
+    { file: 'mockup-category.png', label: 'Catégorie' },
+    { file: 'mockup-detail.png', label: 'Fiche lieu' },
+    { file: 'mockup-map.png', label: 'Carte' },
+    { file: 'mockup-itinerary.png', label: 'Itinéraire' },
+    { file: 'mockup-profile.png', label: 'Profil' },
+  ];
+
+  const shotW = 1.55;
+  const shotH = 3.1;
+  const gap = 0.42;
+  // Centre the row of six on the 13.33in slide.
+  const totalW = shots.length * shotW + (shots.length - 1) * gap;
+  const startX = (13.33 - totalW) / 2;
+
+  shots.forEach((shot, i) => {
+    const x = startX + i * (shotW + gap);
+    s.addImage({ path: shot.file, x, y: 2.1, w: shotW, h: shotH });
+    s.addText(shot.label, {
+      x: x - 0.15, y: 5.35, w: shotW + 0.3, h: 0.3,
+      fontFace: FONT_BODY, fontSize: 11, color: C.textSec, align: 'center',
+    });
+  });
+
+  s.addText(
+    'Interface commune à tous les écrans : bleu #1D2BEF, cartes à coins arrondis, ' +
+    'icônes Ionicons, thème clair / sombre et mise en page adaptée au sens de lecture arabe.',
+    { x: 0.7, y: 6.0, w: 12, h: 0.6, fontFace: FONT_BODY, fontSize: 11, color: C.text, align: 'center' }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SLIDE 20 — Section divider: Conclusion et perspectives
 // ---------------------------------------------------------------------------
 blueChapterCover(pres, {
   chapter: 'Conclusion\net perspectives',
@@ -512,12 +729,16 @@ blueChapterCover(pres, {
   contentHeader(s, 'Conclusion', 'CONCLUSION');
   s.addText(
     'Bon Plan Bizerte centralise en une seule application mobile l’information ' +
-    'touristique de la ville : 25+ lieux réels (restaurants, cafés, plages, sites ' +
-    'naturels, activités, boutiques) avec photos authentiques, coordonnées GPS, ' +
-    'avis et itinéraire personnalisable. Le projet a permis de mettre en pratique ' +
-    'la conception UML/Merise et le développement multiplateforme en React Native, ' +
-    'avec un fort accent sur l’expérience utilisateur (multilingue, mode sombre, ' +
-    'carte interactive, partage natif).',
+    'touristique de la ville : 28 lieux réels (restaurants, cafés, plages, sites ' +
+    'naturels, activités, boutiques) avec photos authentiques, coordonnées GPS et ' +
+    'avis. L’application ne se limite plus à la consultation : elle repose sur une ' +
+    'base de données SQLite embarquée qui conserve comptes, favoris, avis et ' +
+    'itinéraires entre deux lancements, et sur un modèle de rôles permettant aux ' +
+    'visiteurs de proposer des lieux et aux administrateurs de les modérer. ' +
+    'Le projet a permis de mettre en pratique la conception UML/Merise, la ' +
+    'modélisation relationnelle et le développement multiplateforme en React ' +
+    'Native, avec un fort accent sur l’expérience utilisateur (multilingue avec ' +
+    'RTL, mode sombre, carte interactive, partage natif).',
     { x: 0.7, y: 2.0, w: 12, h: 4.5, fontFace: FONT_BODY, fontSize: 16, color: C.text, lineSpacingMultiple: 1.35 }
   );
 }
@@ -529,12 +750,13 @@ blueChapterCover(pres, {
   const s = pres.addSlide();
   contentHeader(s, 'Perspectives', 'CONCLUSION');
   const persp = [
-    'Backend complet : authentification, base Supabase/Firebase, synchronisation des avis.',
+    'Serveur distant et synchronisation : partager comptes, avis et lieux entre plusieurs appareils.',
+    'Géolocalisation réelle : trier les lieux par distance et centrer la carte sur l’utilisateur.',
+    'Horaires d’ouverture par lieu, afin de remplacer l’indicateur « Ouvert » générique.',
     'Réservation en ligne (restaurants, activités, hébergements).',
-    'Mode hors-ligne avec téléchargement des cartes et photos.',
     'Notifications push pour les événements locaux et bons plans.',
     'Extension à d’autres villes tunisiennes (Tunis, Sousse, Hammamet, Djerba).',
-    'Tableau de bord administrateur pour gérer lieux et modérer les avis.',
+    'Traduction du contenu des lieux, aujourd’hui saisi dans une seule langue.',
   ];
   s.addText(
     persp.map(p => ({ text: p, options: { bullet: { type: 'bullet' }, fontSize: 15, color: C.text, paraSpaceAfter: 8 } })),
