@@ -69,7 +69,7 @@ export default function AuthLayout({ title, subtitle, onBack, children, footer }
         >
           {/* The back arrow, only on screens that were pushed onto another. */}
           {onBack ? (
-            <View style={[styles.backRow, rtl.alignStart]}>
+            <View style={[styles.backRow, rtl.alignStart, rtl.marginStart(-spacing.sm)]}>
               <IconButton name={rtl.backIcon} size={22} onPress={onBack} />
             </View>
           ) : (
@@ -115,7 +115,10 @@ const makeStyles = (colors) =>
       paddingHorizontal: spacing.xl,
       paddingBottom: spacing.xxl,
     },
-    // alignStart puts it on the leading edge - left in English, right in Arabic.
+    // The -8 optical pull that used to live here as marginLeft is applied in
+    // the JSX with rtl.marginStart(-spacing.sm): it is still marginLeft in
+    // English (nothing changes there) and becomes marginRight in Arabic, where
+    // the button sits against the other edge.
     backRow: { marginTop: spacing.xs },
     backSpacer: { height: spacing.xl },
 

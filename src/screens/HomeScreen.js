@@ -239,11 +239,12 @@ export default function HomeScreen({ navigation }) {
               contentContainerStyle={[styles.categoriesRow, rtl.row]}
             >
               {categories.map((cat) => (
-                // rtl.marginEnd puts the gap AFTER each circle, which is the
-                // right side in English and the left side in Arabic.
+                // No margin here: the 18px space between the circles comes from
+                // `gap` on the row above, and gap already lands on the correct
+                // side once the row is reversed.
                 <TouchableOpacity
                   key={cat.id}
-                  style={[styles.categoryItem, rtl.marginEnd(14)]}
+                  style={styles.categoryItem}
                   onPress={() => navigation.navigate('CategoryList', { category: cat })}
                 >
                   <View style={styles.categoryCircle}>
@@ -398,11 +399,20 @@ const makeStyles = (colors) =>
     categoriesRow: {
       paddingHorizontal: spacing.xl,
       paddingVertical: spacing.lg,
-      gap: 18,
+      // 32 = the original design's 18pt row gap PLUS the 14pt margin that each
+      // tile used to carry. Keeping the whole amount in `gap` restores the
+      // original spacing and is RTL-correct at the same time: `gap` lands on
+      // the right side by itself when the row reverses, whereas a marginRight
+      // would end up on the wrong side in Arabic.
+      gap: 32,
     },
-    // The 14px gap that used to be marginRight lives in the JSX now, as
-    // rtl.marginEnd(14), so it stays on the correct side when the strip mirrors.
-    categoryItem: { alignItems: 'center', width: 64 },
+    // The spacing between the circles is the `gap` above, not a margin, so
+    // there is nothing here that would need flipping in Arabic.
+    // No fixed width, exactly like the original design: the tile is as wide as
+    // its widest child, so a longer translated label (French "Restaurants",
+    // Arabic "الأكثر شهرة") is never cut off. A `width: 64` here combined with
+    // numberOfLines={1} on the label would have truncated them.
+    categoryItem: { alignItems: 'center' },
     categoryCircle: {
       width: 56,
       height: 56,
