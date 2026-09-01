@@ -176,7 +176,7 @@ export default function AdminDashboardScreen({ navigation }) {
         value: counts.placesHidden,
         // Two existing translation keys glued together, so this label is
         // translated in all three languages without inventing a new key.
-        label: t('status.hidden') + ' - ' + t('admin.places'),
+        label: t('admin.hiddenPlaces'),
       },
       {
         key: 'plansPending',

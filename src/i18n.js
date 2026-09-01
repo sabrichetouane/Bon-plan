@@ -367,6 +367,12 @@ const dict = {
   },
   'admin.deleteTitle':  { en: 'Delete permanently', fr: 'Supprimer définitivement', ar: 'حذف نهائي' },
   'admin.deletePlaceMsg': { en: 'Delete "%s"? This cannot be undone.', fr: 'Supprimer « %s » ? Action irréversible.', ar: 'حذف "%s"؟ لا يمكن التراجع.' },
+  'admin.deleteUserMsg': {
+    en: 'Delete the account of "%s"? Their favorites, reviews and plans go with it.',
+    fr: 'Supprimer le compte de « %s » ? Ses favoris, avis et plans seront supprimés aussi.',
+    ar: 'حذف حساب "%s"؟ ستُحذف معه مفضلاته وتقييماته وخططه.',
+  },
+  'admin.hiddenPlaces': { en: 'Hidden places', fr: 'Lieux masqués', ar: 'أماكن مخفية' },
   'admin.makeAdmin':    { en: 'Make admin',   fr: 'Nommer administrateur', ar: 'تعيين مشرفاً' },
   'admin.removeAdmin':  { en: 'Remove admin', fr: 'Retirer l’administrateur', ar: 'إزالة الإشراف' },
   'admin.roleUser':     { en: 'User',         fr: 'Utilisateur',  ar: 'مستخدم' },

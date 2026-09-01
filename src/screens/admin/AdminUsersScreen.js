@@ -240,7 +240,7 @@ export default function AdminUsersScreen({ navigation }) {
         t('admin.deleteTitle'),
         // The message contains "%s"; .replace() drops the real name into it,
         // which keeps the sentence grammatical in every language.
-        t('admin.deletePlaceMsg').replace('%s', row.name || row.email || ''),
+        t('admin.deleteUserMsg').replace('%s', row.name || row.email || ''),
         [
           { text: t('common.cancel'), style: 'cancel' },
           { text: t('common.delete'), style: 'destructive', onPress: () => doDelete(row) },
@@ -404,6 +404,9 @@ const makeStyles = (colors) =>
       padding: spacing.xl,
       gap: 12,
       paddingBottom: spacing.xxl,
+      // Lets the EmptyState centre itself in the leftover space when the list
+      // has no rows, instead of hugging the top - same as the other admin lists.
+      flexGrow: 1,
     },
 
     // The standard flat card of this app: card background, hairline border,
