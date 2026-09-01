@@ -21,45 +21,67 @@
 // matches the rest of the app rather than being a generic dark theme.
 // ============================================================================
 
+// One exported array. It is plain data, not code, which is why it can live at
+// module level: it mentions colours but never reads the active theme - it IS
+// the dark theme, applied only when the app is in dark mode.
 export const DARK_MAP_STYLE = [
-  // The overall background - same near-black as the app's `background`.
+  // No featureType = "apply to everything". This paints the base canvas the
+  // same near-black as the app's `background`, so map and app edges merge.
   { elementType: 'geometry', stylers: [{ color: '#0B0C14' }] },
 
   // Label text: light grey, with a dark outline so it stays readable over
   // any colour underneath.
+  // 'labels.text.fill' = the letters themselves.
   { elementType: 'labels.text.fill', stylers: [{ color: '#B5B8C7' }] },
+  // 'labels.text.stroke' = the halo drawn behind the letters. Matching it to
+  // the background is what keeps a street name legible over dark water.
   { elementType: 'labels.text.stroke', stylers: [{ color: '#0B0C14' }] },
 
   // Hide the little business icons. On a dark map they compete with OUR
   // markers, which are the whole point of the screen.
+  // 'poi' = point of interest; visibility 'off' removes it entirely.
   { featureType: 'poi', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
 
   // Parks and green spaces - a dark green, still recognisable as nature.
+  // The park's filled shape.
   { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#14261A' }] },
+  // The park's name, in a lighter green so it reads against that fill.
   { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#5A7A63' }] },
 
   // Roads: a touch lighter than the background so the street grid reads.
+  // The road surface.
   { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1A1C28' }] },
+  // The thin outline along each road, slightly darker to suggest a kerb.
   { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#14161F' }] },
+  // Street names, dimmer than place names so they sit behind them visually.
   { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#7A7F93' }] },
 
   // Main roads slightly lighter again, so the hierarchy survives.
+  // Arterial roads. The trailing '80' is an alpha value - 50% transparent.
   { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#22243180' }] },
+  // Motorways: the lightest road tone, so they stand out at a glance.
   { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#262937' }] },
+  // Their outline, one step darker to keep the edge visible.
   { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1E2030' }] },
 
   // Transit lines, dimmed.
+  // Bus and rail lines matter less here than the coastline, so they recede.
   { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#14161F' }] },
 
   // The sea. Bizerte is a coastal city, so this is most of the screen - it
   // uses the app's dark blue-grey rather than a flat black.
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0A1020' }] },
+  // Names of bays and lakes, kept dim so they do not shout.
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3C4560' }] },
 
   // Administrative boundaries (governorate, city limits).
+  // The boundary lines themselves.
   { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: '#262937' }] },
+  // City names - the brightest label colour here, as they aid orientation most.
   { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#9AA0B4' }] },
 
   // Built-up land, a shade above the background.
+  // Building footprints and developed blocks, just light enough to read as
+  // "city" rather than empty space.
   { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#101220' }] },
 ];

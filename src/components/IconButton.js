@@ -22,8 +22,11 @@
 // ============================================================================
 
 import React, { useMemo } from 'react';
+// View is the invisible box; TouchableOpacity is the part that feels the tap.
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// MIN_TAP is the shared 44 constant. Naming it means the guideline is written
+// down once instead of being a mystery number repeated in six files.
 import { useTheme, MIN_TAP } from '../theme/colors';
 
 // ---------------------------------------------------------------------------
@@ -39,17 +42,17 @@ import { useTheme, MIN_TAP } from '../theme/colors';
 //   circleStyle extra styles for the visible circle
 // ---------------------------------------------------------------------------
 export default function IconButton({
-  name,
-  size = 20,
-  color,
-  onPress,
-  diameter = 38,
-  background,
-  style,
-  circleStyle,
-  accessibilityLabel,
-  disabled = false,
-  ...rest
+  name,                     // which Ionicons glyph to draw
+  size = 20,                // glyph size in points
+  color,                    // glyph colour; undefined means "use the theme's"
+  onPress,                  // tap handler
+  diameter = 38,            // the VISIBLE circle - deliberately smaller than the tap box
+  background,               // circle fill; undefined means "use the theme's surface"
+  style,                    // positions the invisible tap box (absolute, margins...)
+  circleStyle,              // extra styling for the visible circle only
+  accessibilityLabel,       // what a screen reader announces
+  disabled = false,         // greys the circle out and ignores taps
+  ...rest                   // anything else (testID, hitSlop) is forwarded
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -57,14 +60,22 @@ export default function IconButton({
   return (
     <TouchableOpacity
       onPress={onPress}
+      // React Native's own guard: a disabled Touchable does not fire onPress
+      // and is skipped by screen readers. We do not need to check it ourselves.
       disabled={disabled}
+      // styles.tap is the invisible 44x44 box described in the header.
       style={[styles.tap, style]}
       // These two tell screen readers (VoiceOver / TalkBack) that this is a
       // button and what it does. Costs one line, makes the app usable blind.
       accessibilityRole="button"
+      // Falling back to the icon NAME is a poor label ('chevron-back'), but it
+      // is far better than silence - it makes a missing label obvious in
+      // testing rather than invisible.
       accessibilityLabel={accessibilityLabel || name}
       {...rest}
     >
+      {/* The visible circle. It is a separate View precisely so its size can
+          differ from the tap area above it - that is the whole trick. */}
       <View
         style={[
           styles.circle,
@@ -72,12 +83,15 @@ export default function IconButton({
           // always be exactly half its width to stay a perfect circle.
           { width: diameter, height: diameter, borderRadius: diameter / 2 },
           // Only override the background when the caller asked for one.
+          // Returning null rather than {} keeps the merged style array clean.
           background ? { backgroundColor: background } : null,
           circleStyle,
           // A pressed-but-disabled button should look inactive.
           disabled ? styles.disabled : null,
         ]}
       >
+        {/* `color || colors.text` = the caller's colour if given, otherwise
+            the theme's, so the icon follows dark mode by default. */}
         <Ionicons name={name} size={size} color={color || colors.text} />
       </View>
     </TouchableOpacity>
@@ -94,10 +108,14 @@ const makeStyles = (colors) =>
       alignItems: 'center',      // centre the circle horizontally
       justifyContent: 'center',  // centre it vertically
     },
+    // The visible circle. No width/height here - those are computed above from
+    // `diameter`, because they must stay locked to the borderRadius.
     circle: {
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: colors.surface,   // default fill, overridable per call
+      alignItems: 'center',              // centre the glyph horizontally
+      justifyContent: 'center',          // and vertically
     },
+    // Fading rather than recolouring keeps one rule working for every variant,
+    // including the translucent buttons drawn over a photo.
     disabled: { opacity: 0.4 },
   });

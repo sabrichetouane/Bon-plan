@@ -19,9 +19,15 @@
 // points to keep clear on one side.
 // ============================================================================
 
+// React, plus useMemo - the hook that caches a computed value between renders.
 import React, { useMemo } from 'react';
+// StyleSheet.create turns a plain object of styles into an optimised one.
 import { StyleSheet } from 'react-native';
+// THE important import: this SafeAreaView, from the safe-area-context package,
+// is the one that actually works on Android. Importing the same name from
+// 'react-native' is the bug described in the header above.
 import { SafeAreaView } from 'react-native-safe-area-context';
+// Gives us the current palette (light or dark) chosen in the store.
 import { useTheme } from '../theme/colors';
 
 // ---------------------------------------------------------------------------
@@ -34,19 +40,43 @@ import { useTheme } from '../theme/colors';
 //                edge-to-edge under the status bar on purpose
 //   style  - extra styles merged over the default background
 // ---------------------------------------------------------------------------
-export default function Screen({ children, edges = ['top', 'left', 'right'], style, ...rest }) {
+export default function Screen({
+  // `children` is whatever the caller wrote between <Screen> and </Screen>.
+  children,
+  // `= [...]` is a DEFAULT value: used only when the caller passes no `edges`.
+  edges = ['top', 'left', 'right'],
+  // Optional extra styling from the caller.
+  style,
+  // `...rest` collects every other prop (testID, onLayout, ...) into one object
+  // so we can forward them, instead of listing every prop React Native accepts.
+  ...rest
+}) {
+  // Read the active colour palette; this re-runs whenever the theme changes.
   const { colors } = useTheme();
+  // Rebuild the stylesheet ONLY when `colors` changes. Without useMemo we would
+  // call StyleSheet.create on every single render, which is pure waste.
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     // The array form [a, b] merges styles - later entries win, so a caller's
     // `style` can override the default background when it needs to.
-    <SafeAreaView style={[styles.screen, style]} edges={edges} {...rest}>
+    <SafeAreaView
+      style={[styles.screen, style]}
+      // Tells the library which sides to pad with the device inset.
+      edges={edges}
+      // Spreads the forwarded props back on as if they were written here.
+      {...rest}
+    >
+      {/* Renders the screen's own content inside the padded area. */}
       {children}
     </SafeAreaView>
   );
 }
 
+// A FACTORY, not a plain stylesheet: it takes `colors` and returns the styles.
+// The project rule is that any style mentioning a colour must be built this
+// way, because a module-level StyleSheet.create would freeze the light-mode
+// colours at import time and never follow a switch to dark mode.
 const makeStyles = (colors) =>
   StyleSheet.create({
     // flex: 1 = "take all the space you can". Without it the screen would

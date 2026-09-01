@@ -2,9 +2,14 @@
 // LoginScreen.js - SIGN IN TO AN EXISTING ACCOUNT
 //
 // The first screen after onboarding. It collects an email and a password,
-// hands them to the store's logIn(), and lets the navigator take over: as soon
-// as a user exists in the store, AppNavigator swaps the auth screens for the
-// main app automatically. This screen never calls navigate() on success.
+// hands them to the store's logIn(), and - once the store confirms the user -
+// resets the navigation history onto the main app itself.
+//
+// It has to do that reset explicitly. Some React Navigation apps register two
+// separate stacks ('logged out' / 'logged in') and let a condition swap them,
+// so no screen ever navigates after a login. This app cannot: a guest is
+// allowed to browse without an account, so there is only ONE stack and nobody
+// is watching whether the store gained a user.
 //
 // HOW A FORM SCREEN WORKS IN REACT, in short:
 //   - useState holds what the user has typed so far
@@ -59,9 +64,28 @@ export default function LoginScreen({ navigation }) {
         // Turn the error CODE into a translated sentence. The `error.` prefix
         // matches the keys added in i18n.js.
         setError('error.' + result.error);
+        return;                          // stop here; stay on the form
       }
-      // On success we do nothing here on purpose: the store now holds a user,
-      // and AppNavigator reacts to that by showing the main app.
+
+      // SUCCESS. logIn() has already awaited the store, so by this line the
+      // user row - role included - is in memory. That matters for an admin:
+      // MainTabs reads isAdmin while it mounts to decide whether the fifth
+      // tab exists, so the reset below must happen AFTER the store is filled.
+      //
+      // reset() throws the whole history away and rebuilds it with a single
+      // entry. That is the right verb here rather than navigate() or
+      // replace():
+      //   - navigate('Main') would push Main ON TOP of Login, so the Android
+      //     back button would drop a signed-in user back onto the login form
+      //   - replace('Main') only swaps the current screen, so a Login reached
+      //     from Signup would still leave Signup underneath
+      // reset() leaves exactly one screen, Main, with nothing behind it.
+      //
+      // Without this line the screen simply sat there after a correct
+      // password: nothing in a single-stack navigator watches the store for a
+      // new user. Force-quitting appeared to log you in only because
+      // SplashScreen re-reads the saved session on the next launch.
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (e) {
       // A crash (database unavailable, etc.) rather than a wrong password.
       console.warn('[LoginScreen] login failed:', e);

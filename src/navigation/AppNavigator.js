@@ -14,6 +14,13 @@
 // Everything stays in ONE stack rather than swapping stacks on login, because
 // this app deliberately lets people browse as a guest. The Splash screen is
 // what decides where to send you once the database has been read.
+//
+// THE PRICE OF THAT CHOICE: with two stacks, a login would move you into the
+// app on its own - the condition choosing the stack flips the moment the store
+// gains a user. Here nothing watches that, so LoginScreen and SignupScreen
+// each finish the job themselves with navigation.reset() once the store has
+// confirmed the account. Forgetting that line is why the app once stayed on
+// the login form after a correct password.
 // ============================================================================
 
 import React from 'react';

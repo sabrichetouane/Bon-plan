@@ -22,6 +22,7 @@ import { useTheme, spacing, radius } from '../theme/colors';
 // returns is null in English and French, so using it costs nothing there.
 import { useRTL } from '../theme/rtl';
 import { useT } from '../store';
+// Two repository functions: one hits the database, one is a pure text check.
 import { findUserByEmail, isValidEmail } from '../db/userRepo';
 
 import AuthLayout from '../components/AuthLayout';
@@ -32,19 +33,23 @@ export default function ForgotPasswordScreen({ navigation }) {
   const { colors } = useTheme();
   const rtl = useRTL();
   const t = useT();
+  // React.useMemo rather than a bare useMemo because only useState was
+  // imported by name at the top; both forms are the same hook.
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
-  const [email, setEmail] = useState('');
-  const [checking, setChecking] = useState(false);
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');        // what is typed in the box
+  const [checking, setChecking] = useState(false); // true while we query the DB
+  const [error, setError] = useState('');        // a translation key, or '' for none
 
   // -------------------------------------------------------------------------
   // handleContinue - look the email up, then move to step 2.
   // -------------------------------------------------------------------------
   const handleContinue = async () => {
-    setError('');
+    setError('');   // clear whatever the previous attempt left on screen
 
     // Check the shape of the address before asking the database at all.
+    // A malformed address can never match a row, so this saves a pointless
+    // query and gives a more precise message than "not found".
     if (!isValidEmail(email)) {
       setError('error.emailInvalid');
       return;
@@ -52,6 +57,7 @@ export default function ForgotPasswordScreen({ navigation }) {
 
     setChecking(true);
     try {
+      // Returns the user row, or null when no account has that address.
       const user = await findUserByEmail(email);
 
       if (!user) {
@@ -61,11 +67,14 @@ export default function ForgotPasswordScreen({ navigation }) {
 
       // Pass the email forward as a route param, so the next screen knows
       // whose password it is changing.
+      // We send user.email, not the typed `email`: the stored version is the
+      // normalised one (trimmed, lower-cased), which is what the update needs.
       navigation.navigate('ResetPassword', { email: user.email });
     } catch (e) {
       console.warn('[ForgotPasswordScreen] lookup failed:', e);
       setError('common.error');
     } finally {
+      // Always release the button, whichever way we left the try block.
       setChecking(false);
     }
   };
@@ -82,7 +91,10 @@ export default function ForgotPasswordScreen({ navigation }) {
         value={email}
         onChangeText={setEmail}
         placeholder={t('auth.emailPlaceholder')}
+        // Gives the OS keyboard an '@' and a '.' key, and no auto-capitalise.
         keyboardType="email-address"
+        // '' is falsy, so `error && t(error)` passes '' when there is no
+        // problem and FormField draws no message.
         error={error && t(error)}
         returnKeyType="go"
         onSubmitEditing={handleContinue}
@@ -92,6 +104,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         title={t('auth.continue')}
         onPress={handleContinue}
         loading={checking}
+        // .trim() so a box holding only spaces still counts as empty.
         disabled={email.trim() === ''}
       />
 
@@ -111,13 +124,15 @@ export default function ForgotPasswordScreen({ navigation }) {
 const makeStyles = (colors) =>
   StyleSheet.create({
     note: {
-      flexDirection: 'row',
-      gap: spacing.sm,
+      flexDirection: 'row',            // icon beside the text, not above it
+      gap: spacing.sm,                 // 8 between them
+      // 'flex-start', not 'center': with a three-line sentence the icon should
+      // sit level with the FIRST line, not float in the vertical middle.
       alignItems: 'flex-start',
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surface, // a soft panel, marking it as an aside
       borderRadius: radius.md,
       padding: spacing.md,
-      marginTop: spacing.xl,
+      marginTop: spacing.xl,           // pushed well clear of the button above
     },
     // flex: 1 lets the sentence wrap onto several lines instead of running off
     // the right edge next to the icon.

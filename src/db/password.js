@@ -29,6 +29,8 @@
 // demo database with no accounts of real value, that trade-off is fine.
 // ============================================================================
 
+// `import * as Crypto` pulls in EVERY export of the package under one name, so
+// we write Crypto.digestStringAsync rather than importing each function.
 import * as Crypto from 'expo-crypto';   // Expo's built-in cryptography helpers
 
 // ---------------------------------------------------------------------------
@@ -37,7 +39,11 @@ import * as Crypto from 'expo-crypto';   // Expo's built-in cryptography helpers
 // randomUUID() gives something like '3f2a9c1e-...-8b7d'. It is random enough
 // for a salt and it comes free with expo-crypto, so we do not need extra code.
 // ---------------------------------------------------------------------------
+// No `export`: this helper is private to this file. Nothing outside needs to
+// make a salt on its own - hashPassword() below is the only correct way in.
 function makeSalt() {
+  // Delegates to the operating system's random-number generator, which is far
+  // better than Math.random() - that one is predictable and unsafe here.
   return Crypto.randomUUID();
 }
 
@@ -48,10 +54,17 @@ function makeSalt() {
 // as a hex string. It is `async` because the phone does the work natively, so
 // we must `await` the answer.
 // ---------------------------------------------------------------------------
+// Also private. Both public functions below funnel through it, which guarantees
+// that signup and login scramble their input in EXACTLY the same way - if they
+// ever differed, no correct password would ever match.
 async function scramble(salt, password) {
+  // Returning the promise directly (no await here) is fine: the caller awaits
+  // it, and one less await is one less microtask.
   return Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,   // which hashing algorithm to use
     salt + password                        // glue salt and password together first
+    // Note the ORDER: salt first, then password. It must be the same order
+    // everywhere, forever - swapping it would invalidate every stored hash.
   );
 }
 
@@ -63,7 +76,10 @@ async function scramble(salt, password) {
 // ---------------------------------------------------------------------------
 export async function hashPassword(plainPassword) {
   const salt = makeSalt();                        // fresh random salt for this user
+  // `await` pauses here until the phone finishes hashing, then continues.
   const hash = await scramble(salt, plainPassword);
+  // Returning an OBJECT rather than an array means the caller writes
+  // `{ hash, salt }` and cannot mix the two values up by ordering them wrong.
   return { hash, salt };
 }
 
@@ -76,8 +92,13 @@ export async function hashPassword(plainPassword) {
 // ---------------------------------------------------------------------------
 export async function verifyPassword(plainPassword, storedHash, storedSalt) {
   // A user row missing either value is broken data - refuse rather than crash.
+  // Failing CLOSED (deny) rather than open (allow) is the safe direction: a
+  // corrupt row must never become a way in.
   if (!storedHash || !storedSalt) return false;
 
+  // Re-scramble the typed password with the salt saved for this account.
   const attempt = await scramble(storedSalt, plainPassword);
+  // `===` compares the two hex strings. Equal scrambles mean equal passwords,
+  // and we never had to store or recover the password itself to find out.
   return attempt === storedHash;
 }

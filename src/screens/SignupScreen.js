@@ -82,9 +82,15 @@ export default function SignupScreen({ navigation }) {
           ? 'name'
           : 'password';
         setErrors({ [field]: 'error.' + result.error });
+        return;                          // stop here; stay on the form
       }
-      // On success: the store now has a user, and AppNavigator switches to the
-      // main app on its own. Nothing to navigate to from here.
+
+      // SUCCESS. Signing up logs the person straight in, so this screen has to
+      // move them into the app itself - see the long note in LoginScreen for
+      // why nothing does it automatically. reset() wipes the Login -> Signup
+      // history and leaves Main as the only entry, so pressing back cannot
+      // return to a sign-up form for an account that now exists.
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (e) {
       console.warn('[SignupScreen] signup failed:', e);
       setErrors({ password: 'common.error' });

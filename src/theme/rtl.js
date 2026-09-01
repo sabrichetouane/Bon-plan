@@ -25,21 +25,32 @@
 // `rtl.row` to a style costs nothing at all when the language is left-to-right.
 // ============================================================================
 
+// The store is where the chosen language lives. Importing it here is what makes
+// useRTL react instantly to a language switch: the store re-renders, so does
+// every component calling useRTL.
 import { useStore } from '../store';
 
 // The language codes that are written right to left. Only Arabic here, but
 // Hebrew ('he') and Persian ('fa') would go in the same list.
+// A module-level constant: built once at import, never rebuilt per render.
 const RTL_LANGUAGES = ['ar'];
 
 // ---------------------------------------------------------------------------
 // useRTL() - everything a component needs to mirror itself.
 // ---------------------------------------------------------------------------
+// The `use` prefix is not decoration: it marks this as a HOOK, which means it
+// may only be called at the top level of a component, never inside a loop or
+// an if. React relies on hooks being called in the same order every render.
 export function useRTL() {
+  // Subscribes to the store and reads just the language code ('en'/'fr'/'ar').
   const { language } = useStore();
 
   // .includes() asks "is this language in the list?" -> true or false.
   const isRTL = RTL_LANGUAGES.includes(language);
 
+  // Everything below is computed fresh on each render. That is cheap - these
+  // are tiny object literals - and it guarantees no stale value survives a
+  // language switch.
   return {
     // The raw flag, for anything the helpers below do not cover.
     isRTL,
@@ -49,10 +60,14 @@ export function useRTL() {
     // Mirror a horizontal row. 'row-reverse' lays the children out from the
     // right instead of the left, so an icon-then-label row becomes
     // label-then-icon without touching the JSX.
+    // `null` in English/French: React Native skips null entries in a style
+    // array entirely, so this really is free when the language is LTR.
     row: isRTL ? { flexDirection: 'row-reverse' } : null,
 
     // The opposite, for the rare row that must NOT mirror - a time like
     // "09:00" or a phone number reads left to right even in Arabic.
+    // It has to force 'row' explicitly, because a mirrored PARENT would
+    // otherwise have already flipped it.
     rowFixed: isRTL ? { flexDirection: 'row' } : null,
 
     // --- TEXT ---
@@ -63,12 +78,16 @@ export function useRTL() {
     text: isRTL ? { textAlign: 'right', writingDirection: 'rtl' } : null,
 
     // For text that should stay centred in both directions (page titles).
+    // Note it sets writingDirection but NOT textAlign - centred is centred in
+    // either language, but the punctuation rule still applies.
     textCenter: isRTL ? { writingDirection: 'rtl' } : null,
 
     // --- ALIGNMENT ---
 
     // "Push this to the start of the line" - which is the LEFT in English and
     // the RIGHT in Arabic.
+    // This one returns a real object in BOTH cases, because there is no
+    // sensible "do nothing" default for alignSelf.
     alignStart: isRTL ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' },
 
     // --- ICONS ---
@@ -85,12 +104,15 @@ export function useRTL() {
     // start(n) / end(n) give you margin on the correct side.
     // In English "start" is the left; in Arabic it is the right.
     // Use these instead of marginLeft / marginRight in a mirrored row.
+    // These are FUNCTIONS, not objects, because the caller supplies the number:
+    //   style={[styles.label, rtl.marginStart(8)]}
     marginStart: (value) => (isRTL ? { marginRight: value } : { marginLeft: value }),
     marginEnd: (value) => (isRTL ? { marginLeft: value } : { marginRight: value }),
     paddingStart: (value) => (isRTL ? { paddingRight: value } : { paddingLeft: value }),
     paddingEnd: (value) => (isRTL ? { paddingLeft: value } : { paddingRight: value }),
 
     // A coloured bar down one edge of a card (the itinerary rows use one).
+    // Takes two arguments because a border needs both a width and a colour.
     borderStart: (width, color) =>
       isRTL
         ? { borderRightWidth: width, borderRightColor: color }
@@ -102,6 +124,9 @@ export function useRTL() {
 // isRTLLanguage(code) - the same test, without needing to be inside a
 // component. Used by code that has the language code but no hooks available.
 // ---------------------------------------------------------------------------
+// A plain function, NOT a hook - which is exactly the point. It can be called
+// from a helper, an event handler, or a repository, where useRTL would be
+// illegal because there is no component render in progress.
 export function isRTLLanguage(code) {
   return RTL_LANGUAGES.includes(code);
 }

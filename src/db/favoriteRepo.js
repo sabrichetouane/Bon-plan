@@ -9,6 +9,8 @@
 // refuses a duplicate, so "have I already favorited this?" never needs code.
 // ============================================================================
 
+// getDb opens the database (once - it caches the handle); nowIso stamps rows
+// with the current time as ISO text.
 import { getDb, nowIso } from './database';
 
 // ---------------------------------------------------------------------------
@@ -26,7 +28,12 @@ export async function getFavoriteIds(userId) {
   // calling screen can use it normally instead of checking for null.
   if (!userId) return new Set();
 
+  // await, because opening the database is asynchronous the first time.
   const db = await getDb();
+  // getAllAsync returns EVERY matching row as an array of plain objects.
+  // The `?` is a PLACEHOLDER: SQLite substitutes the value from the array
+  // safely. Never build SQL by gluing strings together - that is how SQL
+  // injection happens.
   const rows = await db.getAllAsync('SELECT place_id FROM favorites WHERE user_id = ?', [userId]);
 
   // rows looks like [{place_id:'f1'}, {place_id:'n2'}].
@@ -39,11 +46,13 @@ export async function getFavoriteIds(userId) {
 // Used when you only care about one place (the detail screen).
 // ---------------------------------------------------------------------------
 export async function isFavorite(userId, placeId) {
+  // A guest can browse, so "not logged in" is normal, not an error.
   if (!userId) return false;
 
   const db = await getDb();
   // "SELECT 1" - we do not need any actual column, only to know whether a row
   // exists. Asking for the literal 1 is the cheapest way to find out.
+  // getFirstAsync returns the first row, or null when there is none.
   const row = await db.getFirstAsync(
     'SELECT 1 FROM favorites WHERE user_id = ? AND place_id = ?',
     [userId, placeId]
@@ -61,9 +70,12 @@ export async function toggleFavorite(userId, placeId) {
   if (!userId) return false;     // not logged in: nothing to save
 
   const db = await getDb();
+  // Look first, so we know which of the two branches below to take.
   const already = await isFavorite(userId, placeId);
 
   if (already) {
+    // runAsync is for statements that CHANGE data (INSERT/UPDATE/DELETE) and
+    // return no rows - as opposed to getAllAsync/getFirstAsync, which read.
     await db.runAsync('DELETE FROM favorites WHERE user_id = ? AND place_id = ?', [
       userId,
       placeId,
@@ -76,6 +88,7 @@ export async function toggleFavorite(userId, placeId) {
   // it is quietly ignored instead of crashing the screen.
   await db.runAsync(
     'INSERT OR IGNORE INTO favorites (user_id, place_id, created_at) VALUES (?, ?, ?)',
+    // The three values fill the three ? marks, in order.
     [userId, placeId, nowIso()]
   );
   return true;                   // it is a favorite now
@@ -91,10 +104,15 @@ export async function countFavorites(userId) {
   if (!userId) return 0;
 
   const db = await getDb();
+  // "AS total" names the computed column, so we can read it as row.total
+  // rather than the unusable name SQLite would generate, 'COUNT(*)'.
   const row = await db.getFirstAsync(
     'SELECT COUNT(*) AS total FROM favorites WHERE user_id = ?',
     [userId]
   );
+  // `?.` survives a null row; `?? 0` supplies a default only for null/undefined
+  // (unlike `|| 0`, which would also replace a legitimate 0 - harmless here,
+  // but the habit matters where 0 is meaningful).
   return row?.total ?? 0;
 }
 
@@ -103,6 +121,8 @@ export async function countFavorites(userId) {
 // Not wired to a button yet; useful for a future "reset my data" option.
 // ---------------------------------------------------------------------------
 export async function clearFavorites(userId) {
+  // Without this guard the WHERE would match user_id = null and delete
+  // nothing - but returning early makes the intent explicit.
   if (!userId) return;
   const db = await getDb();
   await db.runAsync('DELETE FROM favorites WHERE user_id = ?', [userId]);

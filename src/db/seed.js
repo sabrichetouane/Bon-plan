@@ -265,3 +265,168 @@ async function seedAdminUser(db) {
     ['Admin', email, hash, salt, 'admin', 'en', 'light', 'Bizerte', nowIso()]
   );
 }
+
+
+// ---------------------------------------------------------------------------
+// PUTTING THE MISSING STARTER PHOTOS BACK
+//
+// THE BUG THIS FIXES:
+// Every category screen - Food, Coffee, Beach, Nature, Activity, Shopping -
+// showed cards with a grey rectangle where the photo should be. The name, the
+// rating and the price were all correct. Only the picture was missing, on
+// every seeded place at once.
+//
+// It was never a rendering bug. The `image` column on those rows does not hold
+// a value resolveImage() can turn into a picture, and seedIfEmpty() above can
+// NEVER put that right: it returns at its very first line once it finds the
+// 'seeded' flag. A database written by an older build of the app therefore
+// keeps its broken image column forever, however many times the app is
+// rebuilt or reloaded.
+//
+// The usual advice - "delete the app and reinstall" - is not acceptable here,
+// because it also destroys the user's account, their favorites and their
+// plans. So instead we re-derive the correct key for the starter places and
+// repair only the rows that are actually broken.
+// ---------------------------------------------------------------------------
+
+// Is this stored value something the app can actually display?
+//
+// This is the heart of the repair. The first attempt only looked for NULL,
+// which was too narrow: a column can be USELESS without being empty. All of
+// these are plausible from an older build, and every one of them produces the
+// same grey box:
+//
+//   null / ''                  never written, or written as nothing
+//   '42'                       a require() number that reached the column as
+//                              text, because an early seed stored place.image
+//                              directly instead of translating it to a key
+//   'home/real/oldport-1'      a key in a naming scheme the registry dropped
+//   'home/images'              a key for a photo since removed from the registry
+//                              (images.jfif - Metro cannot bundle .jfif)
+//
+// Rather than guess which one a given phone has, we ask the only question that
+// actually matters: does this value resolve to a real picture?
+function isDisplayableImage(value) {
+  // Not a usable string at all.
+  if (typeof value !== 'string' || value === '') return false;
+
+  // A photo the USER supplied - from their gallery, the camera, or a URL.
+  // We must never touch these, and we could not verify them here anyway: the
+  // file lives on the phone, not in the app bundle.
+  if (value.startsWith('file:') || value.startsWith('http') || value.startsWith('data:')) {
+    return true;
+  }
+
+  // Otherwise it should be a key into the asset registry. `in` asks whether
+  // the table HAS that key, without reading its value - the right test, since
+  // reading would make us depend on the module id being truthy.
+  return value in ASSETS;
+}
+
+// ---------------------------------------------------------------------------
+// repairSeedImages(db) - called from database.js on every startup.
+//
+// It is deliberately conservative. It only ever touches:
+//   - places whose id comes from mockData, i.e. the content that shipped with
+//     the app. A place a user submitted is never even visited by this loop.
+//   - values that cannot be displayed. A photo the user chose, or a key that
+//     already works, passes isDisplayableImage() and is left exactly as it is.
+// ---------------------------------------------------------------------------
+export async function repairSeedImages(db) {
+  // A flag in `meta`, so this runs once per phone rather than on every launch.
+  //
+  // The suffix is _v2 on purpose. An earlier version of this repair only fixed
+  // NULL images and wrote _v1 when it finished. On a phone whose column holds
+  // a non-null but unusable value, that version fixed nothing and still set
+  // its flag - so reusing the same key would skip this better repair entirely.
+  // A NEW key is how you re-run a migration that has already "succeeded".
+  const flag = await db.getFirstAsync('SELECT value FROM meta WHERE key = ?', [
+    'images_repaired_v2',
+  ]);
+  if (flag?.value === 'true') return;
+
+  // Counters, so the fix leaves a trace in the console rather than working
+  // invisibly. `examples` records the first few broken values we met, which is
+  // what tells you WHICH of the failure modes above this phone actually had.
+  let fixedPlaces = 0;
+  let fixedPhotos = 0;
+  const examples = [];
+
+  for (const source of PLACE_SOURCES) {
+    for (const place of source.list) {
+      // Skip the duplicates seedPlaces() never inserted in the first place.
+      if (DUPLICATE_OF[place.id]) continue;
+
+      // What the seed data says this place's picture should be.
+      const imageKey = toImageKey(place.image);
+
+      // --- the main card photo -------------------------------------------
+      // Read what is actually stored, so we can judge it. A missing row means
+      // this phone was seeded before the place existed, and there is nothing
+      // for us to repair.
+      const row = await db.getFirstAsync('SELECT image FROM places WHERE id = ?', [place.id]);
+
+      if (row && imageKey && !isDisplayableImage(row.image)) {
+        // Remember the first few, so the log identifies the cause.
+        if (examples.length < 3) examples.push(JSON.stringify(row.image));
+
+        await db.runAsync('UPDATE places SET image = ? WHERE id = ?', [imageKey, place.id]);
+        fixedPlaces++;
+      }
+
+      // --- the gallery ----------------------------------------------------
+      // The photos table can be broken in the same ways. Drop only the rows
+      // that cannot be displayed; a user-uploaded photo passes the test and
+      // survives.
+      const photoRows = await db.getAllAsync(
+        'SELECT rowid AS rid, image FROM place_photos WHERE place_id = ?',
+        [place.id]
+      );
+      for (const photo of photoRows) {
+        if (!isDisplayableImage(photo.image)) {
+          // rowid is SQLite's own hidden primary key, which lets us delete one
+          // exact row without needing a unique column of our own.
+          await db.runAsync('DELETE FROM place_photos WHERE rowid = ?', [photo.rid]);
+        }
+      }
+
+      // Now re-fill, but ONLY if nothing usable is left. If some photos
+      // survived they are either correct or the user's own, and adding the
+      // seed gallery on top would show the same picture twice in the carousel.
+      const remaining = await db.getFirstAsync(
+        'SELECT COUNT(*) AS total FROM place_photos WHERE place_id = ?',
+        [place.id]
+      );
+      if ((remaining?.total ?? 0) > 0) continue;
+
+      const gallery = place.gallery || [];
+      for (const [index, photo] of gallery.entries()) {
+        const photoKey = toImageKey(photo);
+        // Anything we cannot translate is skipped rather than written as null.
+        if (!photoKey) continue;
+        await db.runAsync(
+          'INSERT INTO place_photos (place_id, image, sort_order) VALUES (?, ?, ?)',
+          [place.id, photoKey, index]
+        );
+        fixedPhotos++;
+      }
+    }
+  }
+
+  // Only speak up when something was actually wrong, so a healthy database
+  // stays silent in the console.
+  if (fixedPlaces > 0 || fixedPhotos > 0) {
+    console.log(
+      `[seed] repaired ${fixedPlaces} place images and ${fixedPhotos} gallery photos` +
+        (examples.length ? ` (column was holding: ${examples.join(', ')})` : '')
+    );
+  }
+
+  // Write the flag LAST. If anything above throws, the flag is never written
+  // and the next launch simply tries again, rather than giving up with the job
+  // half done.
+  await db.runAsync('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)', [
+    'images_repaired_v2',
+    'true',
+  ]);
+}
