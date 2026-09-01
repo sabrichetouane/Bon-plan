@@ -91,6 +91,31 @@ export const radius = {
 };
 
 // ---------------------------------------------------------------------------
+// TOUCH TARGETS
+//
+// Apple asks for at least 44x44 points and Google for 48x48 density-pixels
+// before a button is comfortable to tap. Small icon buttons in this app were
+// 28-40pt, which looks fine but is genuinely hard to hit one-handed.
+//
+// The RIGHT fix is to make the pressable area itself 44pt while keeping the
+// visible circle small - that is what components/IconButton.js does.
+//
+// hitSlopFor() is a fallback for text-only buttons. It returns the invisible
+// extra margin that catches taps just outside the element.
+// WARNING: on Android, hitSlop that reaches outside the PARENT view is
+// ignored, so it only helps when the parent row is already tall enough.
+// ---------------------------------------------------------------------------
+export const MIN_TAP = 44;
+
+// hitSlopFor(38) -> 3 on every side, which grows a 38pt button to 44pt.
+// `max` caps the padding when a neighbouring button is close and the two
+// slop areas would otherwise overlap.
+export function hitSlopFor(size, max = Infinity) {
+  const pad = Math.min(max, Math.max(0, Math.ceil((MIN_TAP - size) / 2)));
+  return { top: pad, bottom: pad, left: pad, right: pad };
+}
+
+// ---------------------------------------------------------------------------
 // HOOKS - read them inside any function component to get the current palette.
 // ---------------------------------------------------------------------------
 

@@ -1,78 +1,125 @@
 // ============================================================================
-// SplashScreen.js - FIRST SCREEN
-// Shows the logo on a blue gradient for ~2 seconds, then auto-advances.
-// A splash is mostly cosmetic but also gives your app time to prepare (fonts,
-// data fetch, etc.) before the real UI shows up.
+// SplashScreen.js - FIRST SCREEN, AND THE TRAFFIC POLICEMAN
+//
+// It shows the logo on a blue gradient, but it also does real work: while the
+// user looks at it, the app is opening the SQLite database, creating the
+// tables the first time, loading the 28 starter places, and checking whether
+// somebody was already logged in last time.
+//
+// When that finishes it sends the user to one of two places:
+//   - already logged in  -> straight into the app (Main)
+//   - nobody logged in   -> the onboarding pages, then login
+//
+// That is why a splash screen exists at all: it gives the app a moment to get
+// ready, instead of showing a half-empty screen.
 // ============================================================================
 
-import React, { useEffect } from 'react';
-import { View, Text, Image, StyleSheet, Dimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';   // for the 3-color blue bg
-import { colors } from '../theme/colors';                // static light palette (this screen is always blue)
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Image, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useStore } from '../store';
 
-// Dimensions.get('window') returns the device's screen size at launch.
-// We use `width` so the decorative circles are proportional to the phone size.
-const { width, height } = Dimensions.get('window');
-
-// `navigation` is an object React Navigation injects automatically.
-// We use navigation.replace(name) to swap to the next screen (no back arrow).
 export default function SplashScreen({ navigation }) {
-  // useEffect runs code AFTER the first render. Here we schedule a timer.
+  // `ready` turns true once the store has opened the database and looked for a
+  // saved session. `isLoggedIn` tells us which way to send the user.
+  const { ready, isLoggedIn } = useStore();
+
+  // useWindowDimensions gives the CURRENT screen size and updates if it
+  // changes (rotation, a foldable opening, Android split-screen).
+  // The old code read the size once with Dimensions.get() at the top of the
+  // file, which is frozen the moment the app loads and never updates.
+  const { width } = useWindowDimensions();
+
+  // useRef holds a value that survives re-renders WITHOUT causing one.
+  // We use it as a one-way switch: "have we already navigated away?".
+  // Without it, if `ready` changed twice we could fire two navigations and
+  // end up with two copies of the app on the stack.
+  const navigated = useRef(false);
+
   useEffect(() => {
-    // After 2.2s, replace (not push) the splash with the first onboarding page.
-    const t = setTimeout(() => navigation.replace('Onboarding1'), 2200);
-    // Cleanup: if the screen unmounts before the timer fires, cancel it.
-    return () => clearTimeout(t);
-  }, [navigation]); // rerun only if navigation changes (it never does in practice)
+    // Nothing to do until the database has finished opening.
+    if (!ready) return;
+    // Already sent the user somewhere - do not do it twice.
+    if (navigated.current) return;
+
+    // Keep the logo on screen for a moment even if the database was instant,
+    // otherwise the splash flashes past too fast to read.
+    const timer = setTimeout(() => {
+      navigated.current = true;
+
+      // replace() instead of navigate(): it REPLACES the splash in the history
+      // rather than stacking on top, so pressing back never returns here.
+      navigation.replace(isLoggedIn ? 'Main' : 'Onboarding1');
+    }, 1400);
+
+    // If this screen disappears before the timer fires, cancel it. Otherwise
+    // React warns about updating a screen that no longer exists.
+    return () => clearTimeout(timer);
+  }, [ready, isLoggedIn, navigation]);
+
+  // The decorative circles are sized from the screen width, so they look the
+  // same on a small phone and a tablet.
+  const blobSize = width * 1.2;
 
   return (
-    // LinearGradient draws a smooth blend between the listed colors.
+    // LinearGradient blends smoothly between the listed colours, top to bottom.
     <LinearGradient colors={['#0E1BCF', '#1D2BEF', '#3A46FF']} style={styles.container}>
-      {/* Two big translucent circles that peek in from the edges for a designed look. */}
-      <View style={[styles.blob, styles.blobTop]} />
-      <View style={[styles.blob, styles.blobBottom]} />
+      {/* Two big translucent circles peeking in from the corners. */}
+      <View
+        style={[
+          styles.blob,
+          { width: blobSize, height: blobSize, borderRadius: blobSize / 2 },
+          { top: -blobSize * 0.5, left: -blobSize * 0.25 },
+        ]}
+      />
+      <View
+        style={[
+          styles.blob,
+          { width: blobSize, height: blobSize, borderRadius: blobSize / 2 },
+          { bottom: -blobSize * 0.5, right: -blobSize * 0.25, backgroundColor: 'rgba(255,255,255,0.06)' },
+        ]}
+      />
 
-      {/* Logo card + "Bon Plan / Bizerte" title */}
       <View style={styles.logoWrap}>
         <View style={styles.logoCard}>
-          {/* require(...) bundles the image at build time. assets/icon.png is the user's logo. */}
-          <Image
-            source={require('../../assets/icon.png')}
-            style={styles.logoImg}
-            resizeMode="contain"  // keep aspect ratio inside the box
-          />
+          {/* require() bundles the image into the app at build time. */}
+          <Image source={require('../../assets/icon.png')} style={styles.logoImg} resizeMode="contain" />
         </View>
         <Text style={styles.title}>Bon Plan</Text>
         <Text style={styles.title}>Bizerte</Text>
       </View>
+
+      {/* A small spinner while the database is still opening. It disappears
+          the moment `ready` becomes true, which reassures the user that
+          something is happening on a slow first launch. */}
+      {!ready && <ActivityIndicator color="rgba(255,255,255,0.8)" style={styles.spinner} />}
     </LinearGradient>
   );
 }
 
-// StyleSheet.create performs a few lightweight optimizations vs. plain objects.
+// This screen is always blue, so its styles never change with the theme and
+// can safely live at module level (unlike every other screen in the app).
 const styles = StyleSheet.create({
   container: {
-    flex: 1,                 // take all available space (whole screen)
-    alignItems: 'center',    // center child horizontally
-    justifyContent: 'center',// center child vertically
-    overflow: 'hidden',      // clip the blobs that stick out of the edges
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',     // clip the circles that stick out past the edges
   },
   blob: {
-    position: 'absolute',    // float above siblings, out of normal flow
-    width: width * 1.2,      // bigger than the screen
-    height: width * 1.2,
-    borderRadius: width,     // huge radius = perfect circle
-    backgroundColor: 'rgba(255,255,255,0.08)', // faint white glow
+    position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  blobTop:    { top: -width * 0.6,    left: -width * 0.3 },
-  blobBottom: { bottom: -width * 0.6, right: -width * 0.3, backgroundColor: 'rgba(255,255,255,0.06)' },
   logoWrap: { alignItems: 'center' },
   logoCard: {
-    width: 110, height: 110, borderRadius: 22,
+    width: 110,
+    height: 110,
+    borderRadius: 22,
     backgroundColor: '#fff',
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 24,
-    // Shadow - iOS uses `shadow*`, Android uses `elevation`. We set both.
+    // iOS reads shadow*, Android reads elevation - set both or it is flat on one.
     shadowColor: '#000',
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -80,5 +127,9 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   logoImg: { width: 82, height: 82 },
-  title: { color: '#fff', fontSize: 28, fontWeight: '600', lineHeight: 34 },
+  // No lineHeight here on purpose. React Native scales fontSize with the
+  // phone's text-size setting but leaves lineHeight fixed, so the old
+  // `lineHeight: 34` made the two title lines overlap at large text sizes.
+  title: { color: '#fff', fontSize: 28, fontWeight: '600' },
+  spinner: { position: 'absolute', bottom: 64 },
 });

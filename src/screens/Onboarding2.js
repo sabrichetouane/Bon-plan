@@ -1,86 +1,179 @@
 // ============================================================================
-// Onboarding2.js - SECOND ONBOARDING PAGE ("Customize your travel")
-// Same structure as Onboarding1 but the illustration is a person with luggage,
-// the title/body are different, and the second dot is active.
+// Onboarding2.js - SECOND INTRODUCTION PAGE ("Customize your travel")
+//
+// Same layout as Onboarding1: Skip, picture, title, paragraph, dots, button.
+// Only the drawing, the words and which dot is active change.
+//
+// The picture is a simple traveller with a suitcase, built from plain <View>
+// boxes - no image file. Every measurement is a fraction of `size`, which the
+// screen works out from the real device dimensions, so it scales instead of
+// overflowing a small phone.
+//
+// The Next button uses replace() rather than navigate(). That matters: it
+// takes onboarding OFF the history, so once you reach the login screen you
+// cannot swipe back into the introduction. The old version used navigate()
+// here, which left Onboarding1 sitting under the whole app for the rest of
+// the session.
 // ============================================================================
 
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing } from '../theme/colors';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { useTheme, spacing } from '../theme/colors';
+import { useT } from '../store';
+import Screen from '../components/Screen';
+import { PrimaryButton, PressableText } from '../components/Buttons';
 
-// The illustration is built entirely from styled Views (no SVG/PNG).
-// Each View is a body part of a simple person with a suitcase.
-function Illustration() {
+// ---------------------------------------------------------------------------
+// Illustration - a person with a suitcase, drawn from boxes.
+// `s` is the base size; every part is a multiple of it.
+// ---------------------------------------------------------------------------
+function Illustration({ s, colors, styles }) {
   return (
-    <View style={styles.illustration}>
-      <View style={styles.stage} />            {/* ground line */}
+    <View style={[styles.stage, { width: s, height: s }]}>
+      {/* The pale oval "ground" the figure stands on. */}
+      <View style={[styles.ground, { width: s * 0.85, height: s * 0.055, borderRadius: s * 0.03 }]} />
+
+      {/* Two small decorative dots in the corners. */}
+      <View style={[styles.miniBlob, { width: s * 0.08, height: s * 0.08, borderRadius: s * 0.04, top: s * 0.1, left: s * 0.08 }]} />
+      <View style={[styles.miniBlob, { width: s * 0.08, height: s * 0.08, borderRadius: s * 0.04, bottom: s * 0.18, right: s * 0.06, backgroundColor: '#FFD1A8' }]} />
+
+      {/* The figure: a head, a body, and a suitcase beside it. */}
       <View style={styles.person}>
-        <View style={styles.head} />
-        <View style={styles.body} />
-        <View style={styles.suitcase}>         {/* little brown suitcase */}
-          <View style={styles.handle} />
+        <View style={[styles.head, { width: s * 0.19, height: s * 0.19, borderRadius: s * 0.095 }]} />
+        <View
+          style={[
+            styles.body,
+            {
+              width: s * 0.31,
+              height: s * 0.4,
+              borderTopLeftRadius: s * 0.08,
+              borderTopRightRadius: s * 0.08,
+              borderBottomLeftRadius: s * 0.045,
+              borderBottomRightRadius: s * 0.045,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.suitcase,
+            {
+              width: s * 0.2,
+              height: s * 0.21,
+              borderRadius: s * 0.027,
+              right: -s * 0.19,
+              bottom: s * 0.06,
+            },
+          ]}
+        >
+          {/* The little handle on top of the suitcase. */}
+          <View
+            style={[
+              styles.handle,
+              { top: -s * 0.036, left: s * 0.045, width: s * 0.11, height: s * 0.036 },
+            ]}
+          />
         </View>
       </View>
-      {/* Two decorative dots in the corners */}
-      <View style={[styles.miniBlob, { top: 40, left: 30 }]} />
-      <View style={[styles.miniBlob, { bottom: 50, right: 20, backgroundColor: '#FFD1A8' }]} />
     </View>
   );
 }
 
 export default function Onboarding2({ navigation }) {
+  const { colors } = useTheme();
+  const t = useT();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  const { width, height } = useWindowDimensions();
+  // Same sizing rule as page one, so both illustrations match visually.
+  const size = Math.min(width * 0.62, height * 0.3, 280);
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top-right Skip jumps past onboarding */}
-      <View style={styles.skipRow}>
-        <TouchableOpacity onPress={() => navigation.replace('ChooseCity')}>
-          <Text style={styles.skip}>Skip</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Illustration />
-
-      <View style={styles.content}>
-        <Text style={styles.title}>Customize your travel</Text>
-        <Text style={styles.subtitle}>
-          Plan your day, save your favorite spots and let Bon Plan build the
-          perfect itinerary through Bizerte for you.
-        </Text>
-
-        {/* Progress dots - the second one is active here */}
-        <View style={styles.dotsRow}>
-          <View style={styles.dot} />
-          <View style={[styles.dot, styles.dotActive]} />
+    <Screen edges={['top', 'left', 'right', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.skipRow}>
+          <PressableText
+            title={t('common.skip')}
+            tone="muted"
+            onPress={() => navigation.replace('Login')}
+          />
         </View>
 
-        {/* navigation.replace ends the onboarding flow - user can't go back. */}
-        <TouchableOpacity style={styles.nextBtn} onPress={() => navigation.replace('ChooseCity')}>
-          <Text style={styles.nextText}>Next</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+        <View style={styles.illustrationWrap}>
+          <Illustration s={size} colors={colors} styles={styles} />
+        </View>
+
+        <View style={styles.content}>
+          <Text style={styles.title}>{t('onboarding.title2')}</Text>
+          <Text style={styles.subtitle}>{t('onboarding.body2')}</Text>
+
+          {/* The SECOND dot is the active one on this page. */}
+          <View style={styles.dotsRow}>
+            <View style={styles.dot} />
+            <View style={[styles.dot, styles.dotActive]} />
+          </View>
+
+          <PrimaryButton title={t('common.next')} onPress={() => navigation.replace('Login')} />
+        </View>
+      </ScrollView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  skipRow: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, alignItems: 'flex-end' },
-  skip: { color: colors.textSecondary, fontSize: 14, fontWeight: '500' },
-  illustration: { flex: 1.1, alignItems: 'center', justifyContent: 'center', marginTop: spacing.lg },
-  stage: { position: 'absolute', bottom: 30, width: 220, height: 14, borderRadius: 7, backgroundColor: colors.primarySoft },
-  miniBlob: { position: 'absolute', width: 18, height: 18, borderRadius: 9, backgroundColor: colors.primarySoft },
-  person: { alignItems: 'center' },
-  head: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F4C9A4', marginBottom: 4 },
-  body: { width: 70, height: 90, backgroundColor: colors.primary, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: 10, borderBottomRightRadius: 10 },
-  suitcase: { position: 'absolute', right: -42, bottom: 14, width: 44, height: 46, borderRadius: 6, backgroundColor: '#8A5A3B' },
-  handle: { position: 'absolute', top: -8, left: 10, width: 24, height: 8, borderRadius: 4, borderWidth: 2, borderColor: '#8A5A3B', borderBottomWidth: 0, backgroundColor: 'transparent' },
-  content: { flex: 1, paddingHorizontal: spacing.xl, alignItems: 'center', justifyContent: 'flex-start' },
-  title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: spacing.md },
-  subtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: spacing.xl, paddingHorizontal: spacing.lg },
-  dotsRow: { flexDirection: 'row', marginBottom: spacing.xl },
-  dot: { width: 8, height: 8, borderRadius: 4, marginHorizontal: 4, backgroundColor: colors.border },
-  dotActive: { width: 22, backgroundColor: colors.primary },
-  nextBtn: { width: '90%', backgroundColor: colors.primary, paddingVertical: 14, borderRadius: radius.md, alignItems: 'center' },
-  nextText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-});
+const makeStyles = (colors) =>
+  StyleSheet.create({
+    scroll: { flexGrow: 1, paddingBottom: spacing.xl },
+
+    skipRow: {
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.sm,
+      alignItems: 'flex-end',
+    },
+
+    illustrationWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.xl,
+    },
+    stage: { alignItems: 'center', justifyContent: 'center' },
+    ground: {
+      position: 'absolute',
+      bottom: '8%',
+      backgroundColor: colors.primarySoft,
+    },
+    miniBlob: { position: 'absolute', backgroundColor: colors.primarySoft },
+
+    person: { alignItems: 'center' },
+    head: { backgroundColor: '#F4C9A4', marginBottom: 4 },
+    body: { backgroundColor: colors.primary },
+    suitcase: { position: 'absolute', backgroundColor: '#8A5A3B' },
+    handle: {
+      position: 'absolute',
+      borderWidth: 2,
+      borderColor: '#8A5A3B',
+      borderBottomWidth: 0,     // an upside-down U shape
+      backgroundColor: 'transparent',
+      borderTopLeftRadius: 6,
+      borderTopRightRadius: 6,
+    },
+
+    content: { paddingHorizontal: spacing.xl, alignItems: 'center' },
+    title: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: spacing.md,
+      textAlign: 'center',
+    },
+    // lineHeight deliberately omitted - see the note in Onboarding1.js.
+    subtitle: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: spacing.xl,
+      paddingHorizontal: spacing.sm,
+    },
+
+    dotsRow: { flexDirection: 'row', marginBottom: spacing.xl, gap: 8 },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
+    dotActive: { width: 22, backgroundColor: colors.primary },
+  });
