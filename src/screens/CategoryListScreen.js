@@ -27,6 +27,7 @@ import { View, StyleSheet, FlatList } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, spacing } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import * as placeRepo from '../db/placeRepo';
 
@@ -55,6 +56,9 @@ const FILTERS = [
 
 export default function CategoryListScreen({ navigation, route }) {
   const { colors } = useTheme();
+  // useRTL() hands back tiny style pieces that mirror the layout in Arabic.
+  // In English and French every one of them is null, so nothing moves there.
+  const rtl = useRTL();
   const t = useT();
   const { userId, isFavorite, toggleFavorite, isLoggedIn } = useStore();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -133,8 +137,10 @@ export default function CategoryListScreen({ navigation, route }) {
       />
 
       {/* The filter chips. flexWrap lets them move onto a second line rather
-          than being squashed, which matters for the longer French words. */}
-      <View style={styles.chipsRow}>
+          than being squashed, which matters for the longer French words.
+          rtl.row makes them start from the right in Arabic. The Chip component
+          already handles its own inside, so we only mirror the row. */}
+      <View style={[styles.chipsRow, rtl.row]}>
         {FILTERS.map((f) => (
           <Chip
             key={f.id}

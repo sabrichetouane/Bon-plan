@@ -22,6 +22,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, radius, spacing, hitSlopFor } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 
 // ---------------------------------------------------------------------------
 // Props:
@@ -46,6 +47,7 @@ export default function SearchField({
   ...rest
 }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // Should the clear button be visible? Only when there IS text to clear
@@ -53,11 +55,11 @@ export default function SearchField({
   const showClear = Boolean(onClear && value);
 
   return (
-    <View style={[styles.bar, variant === 'card' && styles.barCard, style]}>
+    <View style={[styles.bar, variant === 'card' && styles.barCard, rtl.row, style]}>
       <Ionicons name="search" size={18} color={colors.textMuted} />
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, rtl.text]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}

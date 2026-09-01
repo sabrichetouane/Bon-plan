@@ -17,6 +17,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, ActivityIndicator, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, radius, spacing, MIN_TAP } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 
 // ===========================================================================
 // PrimaryButton - the solid blue call to action
@@ -40,6 +41,7 @@ export function PrimaryButton({
   ...rest
 }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // While loading we must also block taps, otherwise a double tap submits a
@@ -52,6 +54,7 @@ export function PrimaryButton({
       disabled={isBlocked}
       style={[
         styles.primary,
+        rtl.row,
         variant === 'danger' && styles.primaryDanger,
         full && styles.full,
         isBlocked && styles.blocked,
@@ -90,13 +93,14 @@ export function SecondaryButton({
   ...rest
 }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
-      style={[styles.secondary, full && styles.full, disabled && styles.blocked, style]}
+      style={[styles.secondary, rtl.row, full && styles.full, disabled && styles.blocked, style]}
       accessibilityRole="button"
       {...rest}
     >
@@ -114,6 +118,7 @@ export function SecondaryButton({
 //   tone  'primary' (blue link) | 'muted' (grey, e.g. "Skip") | 'danger'
 export function PressableText({ title, onPress, tone = 'primary', style, ...rest }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const toneStyle =
@@ -140,8 +145,9 @@ export function PressableText({ title, onPress, tone = 'primary', style, ...rest
 // ===========================================================================
 export function ButtonRow({ children, style }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  return <View style={[styles.row, style]}>{children}</View>;
+  return <View style={[styles.row, rtl.row, style]}>{children}</View>;
 }
 
 const makeStyles = (colors) =>
@@ -149,11 +155,14 @@ const makeStyles = (colors) =>
     // --- shared ---
     full: { alignSelf: 'stretch' },   // stretch across the parent's width
     blocked: { opacity: 0.5 },
-    iconLeft: { marginRight: 6 },
+    // No marginRight here: the parent uses `gap`, which already mirrors
+    // correctly with flexDirection row-reverse.
+    iconLeft: {},
 
     // --- primary ---
     primary: {
       flexDirection: 'row',
+      gap: 6,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.primary,
@@ -170,6 +179,7 @@ const makeStyles = (colors) =>
     // --- secondary ---
     secondary: {
       flexDirection: 'row',
+      gap: 6,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.card,

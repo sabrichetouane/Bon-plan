@@ -16,6 +16,9 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, radius, spacing } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import Screen from '../components/Screen';
 import SearchField from '../components/SearchField';
@@ -47,6 +50,7 @@ function Illustration({ s, colors, styles }) {
 
 export default function ChooseCity({ navigation, route }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();
   // `city` is the saved value; setCity writes the new one to the database.
   const { city, setCity, isLoggedIn } = useStore();
@@ -112,7 +116,7 @@ export default function ChooseCity({ navigation, route }) {
           </View>
         )}
 
-        <Text style={styles.title}>{t('city.title')}</Text>
+        <Text style={[styles.title, rtl.textCenter]}>{t('city.title')}</Text>
 
         <SearchField
           value={query}
@@ -122,7 +126,7 @@ export default function ChooseCity({ navigation, route }) {
           style={styles.search}
         />
 
-        <Text style={styles.sectionLabel}>{t('city.popular')}</Text>
+        <Text style={[styles.sectionLabel, rtl.text]}>{t('city.popular')}</Text>
 
         {/* One row per city. `key` is required by React so it can tell rows
             apart when the list changes - the city name is unique, so it works
@@ -132,16 +136,16 @@ export default function ChooseCity({ navigation, route }) {
           return (
             <TouchableOpacity
               key={name}
-              style={[styles.cityRow, isSelected && styles.cityRowActive]}
+              style={[styles.cityRow, isSelected && styles.cityRowActive, rtl.row]}
               onPress={() => setSelected(name)}
               accessibilityRole="radio"
               accessibilityState={{ selected: isSelected }}
             >
-              <View style={styles.cityLeft}>
+              <View style={[styles.cityLeft, rtl.row]}>
                 <Ionicons name="location-outline" size={18} color={colors.primary} />
                 {/* flex:1 + numberOfLines: a long city name shrinks rather than
                     pushing the tick mark off the right edge. */}
-                <Text style={styles.cityText} numberOfLines={1}>
+                <Text style={[styles.cityText, rtl.text]} numberOfLines={1}>
                   {name}
                 </Text>
               </View>
@@ -153,7 +157,7 @@ export default function ChooseCity({ navigation, route }) {
         })}
 
         {/* Nothing matched what was typed. */}
-        {filtered.length === 0 && <Text style={styles.noResults}>{t('list.empty')}</Text>}
+        {filtered.length === 0 && <Text style={[styles.noResults, rtl.textCenter]}>{t('list.empty')}</Text>}
       </ScrollView>
 
       {/* The button sits in a fixed bar at the bottom, above the safe area.

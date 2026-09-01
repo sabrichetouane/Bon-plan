@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, radius, spacing } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import { LANGUAGES } from '../i18n';
 import * as favoriteRepo from '../db/favoriteRepo';
@@ -39,14 +40,19 @@ import { EmptyState } from '../components/Feedback';
 // It is defined outside the main component on purpose. A component declared
 // INSIDE another is rebuilt on every render, which makes React throw away and
 // recreate every row instead of just updating it.
+//
+// `rtl` arrives as a PROP rather than from useRTL() inside. Row calls no hooks
+// today, and passing the object in keeps it a plain function of its props.
 // ---------------------------------------------------------------------------
-function Row({ styles, colors, icon, label, value, onPress, last, danger }) {
+function Row({ styles, colors, rtl, icon, label, value, onPress, last, danger }) {
   // Without an onPress this is just information, so it should not look tappable.
   const isTappable = Boolean(onPress);
 
   return (
     <TouchableOpacity
-      style={[styles.row, !last && styles.rowBorder]}
+      // rtl.row mirrors the line in Arabic - chevron, value, label, then icon.
+      // It is null in English, so the row there is exactly as it was.
+      style={[styles.row, !last && styles.rowBorder, rtl.row]}
       onPress={onPress}
       // `disabled` stops the row flashing when tapped if it does nothing.
       disabled={!isTappable}
@@ -56,7 +62,7 @@ function Row({ styles, colors, icon, label, value, onPress, last, danger }) {
 
       {/* flex:1 + minWidth:0 + numberOfLines: a long French label shrinks
           instead of pushing the value and chevron off the screen. */}
-      <Text style={[styles.rowLabel, danger && styles.rowLabelDanger]} numberOfLines={1}>
+      <Text style={[styles.rowLabel, danger && styles.rowLabelDanger, rtl.text]} numberOfLines={1}>
         {label}
       </Text>
 
@@ -68,13 +74,18 @@ function Row({ styles, colors, icon, label, value, onPress, last, danger }) {
 
       {/* The chevron only appears when the row goes somewhere. The old Row
           always drew one, so read-only rows like "Version" looked tappable. */}
-      {isTappable && <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />}
+      {/* rtl.forwardIcon points the chevron the way the row reads: to the right
+          in English, to the left in Arabic. */}
+      {isTappable && <Ionicons name={rtl.forwardIcon} size={16} color={colors.textMuted} />}
     </TouchableOpacity>
   );
 }
 
 export default function ProfileScreen({ navigation }) {
   const { colors, mode, setMode, toggle } = useTheme();
+  // useRTL gives back small style objects that mirror the layout in Arabic.
+  // They are all null in English and French, so nothing moves for those users.
+  const rtl = useRTL();
   const {
     user,
     userId,
@@ -150,8 +161,9 @@ export default function ProfileScreen({ navigation }) {
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ---------- HEADER ---------- */}
-        <View style={styles.header}>
-          <Text style={styles.title}>{t('profile.title')}</Text>
+        {/* rtl.row mirrors this row in Arabic; it does nothing in English. */}
+        <View style={[styles.header, rtl.row]}>
+          <Text style={[styles.title, rtl.text]}>{t('profile.title')}</Text>
           {/* A quick light/dark switch, next to the full choice below. */}
           <IconButton
             name={mode === 'dark' ? 'sunny' : 'moon'}
@@ -180,14 +192,14 @@ export default function ProfileScreen({ navigation }) {
 
             {/* A badge so an admin can see at a glance which account they are on. */}
             {isAdmin && (
-              <View style={styles.adminBadge}>
+              <View style={[styles.adminBadge, rtl.row]}>
                 <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
                 <Text style={styles.adminBadgeText}>{t('admin.roleAdmin')}</Text>
               </View>
             )}
 
             <TouchableOpacity
-              style={styles.editButton}
+              style={[styles.editButton, rtl.row]}
               onPress={() => navigation.navigate('EditProfile')}
             >
               <Ionicons name="create-outline" size={14} color={colors.primary} />
@@ -212,7 +224,8 @@ export default function ProfileScreen({ navigation }) {
 
         {/* ---------- STATS ---------- */}
         {isLoggedIn && (
-          <View style={styles.statsRow}>
+          // The three counts read right to left in Arabic.
+          <View style={[styles.statsRow, rtl.row]}>
             <TouchableOpacity style={styles.stat} onPress={() => navigation.navigate('Favorites')}>
               <Text style={styles.statNumber}>{favoriteCount}</Text>
               <Text style={styles.statLabel}>{t('profile.favoritesCount')}</Text>
@@ -235,15 +248,15 @@ export default function ProfileScreen({ navigation }) {
         )}
 
         {/* ---------- APPEARANCE ---------- */}
-        <Text style={styles.sectionLabel}>{t('profile.appearance')}</Text>
+        <Text style={[styles.sectionLabel, rtl.text]}>{t('profile.appearance')}</Text>
         <View style={styles.card}>
-          <View style={styles.cardHead}>
+          <View style={[styles.cardHead, rtl.row]}>
             <Ionicons name="color-palette-outline" size={18} color={colors.primary} />
-            <Text style={styles.cardHeadText}>{t('profile.appColor')}</Text>
+            <Text style={[styles.cardHeadText, rtl.text]}>{t('profile.appColor')}</Text>
           </View>
 
           {/* Two preview tiles. Each shows a miniature of the theme it selects. */}
-          <View style={styles.modeRow}>
+          <View style={[styles.modeRow, rtl.row]}>
             {[
               { key: 'light', label: t('profile.light'), icon: 'sunny-outline', bg: '#FFFFFF', border: '#E5E7EF', textBar: '#0F1226', mutedBar: '#9AA0B4', dot: '#1D2BEF' },
               { key: 'dark', label: t('profile.dark'), icon: 'moon-outline', bg: '#0B0C14', border: '#262937', textBar: '#F3F4F8', mutedBar: '#7A7F93', dot: '#6D78FF' },
@@ -263,14 +276,14 @@ export default function ProfileScreen({ navigation }) {
                     <View style={[styles.previewDot, { backgroundColor: option.dot }]} />
                   </View>
 
-                  <View style={styles.modeLabelRow}>
+                  <View style={[styles.modeLabelRow, rtl.row]}>
                     <Ionicons
                       name={option.icon}
                       size={14}
                       color={isActive ? colors.primary : colors.textSecondary}
                     />
                     <Text
-                      style={[styles.modeLabel, isActive && styles.modeLabelActive]}
+                      style={[styles.modeLabel, isActive && styles.modeLabelActive, rtl.text]}
                       numberOfLines={1}
                     >
                       {option.label}
@@ -288,11 +301,12 @@ export default function ProfileScreen({ navigation }) {
         {/* ---------- MY CONTENT ---------- */}
         {isLoggedIn && (
           <>
-            <Text style={styles.sectionLabel}>{t('profile.account')}</Text>
+            <Text style={[styles.sectionLabel, rtl.text]}>{t('profile.account')}</Text>
             <View style={styles.card}>
               <Row
                 styles={styles}
                 colors={colors}
+                rtl={rtl}
                 icon="heart-outline"
                 label={t('fav.title')}
                 value={String(favoriteCount)}
@@ -301,6 +315,7 @@ export default function ProfileScreen({ navigation }) {
               <Row
                 styles={styles}
                 colors={colors}
+                rtl={rtl}
                 icon="calendar-outline"
                 label={t('plan.myPlans')}
                 onPress={() => navigation.navigate('MyPlans')}
@@ -308,6 +323,7 @@ export default function ProfileScreen({ navigation }) {
               <Row
                 styles={styles}
                 colors={colors}
+                rtl={rtl}
                 icon="business-outline"
                 label={t('place.myPlaces')}
                 onPress={() => navigation.navigate('MyPlaces')}
@@ -315,6 +331,7 @@ export default function ProfileScreen({ navigation }) {
               <Row
                 styles={styles}
                 colors={colors}
+                rtl={rtl}
                 icon="add-circle-outline"
                 label={t('place.addOne')}
                 onPress={() => navigation.navigate('AddPlace')}
@@ -327,11 +344,12 @@ export default function ProfileScreen({ navigation }) {
         {/* ---------- ADMIN SHORTCUT ---------- */}
         {isAdmin && (
           <>
-            <Text style={styles.sectionLabel}>{t('admin.title')}</Text>
+            <Text style={[styles.sectionLabel, rtl.text]}>{t('admin.title')}</Text>
             <View style={styles.card}>
               <Row
                 styles={styles}
                 colors={colors}
+                rtl={rtl}
                 icon="shield-checkmark-outline"
                 label={t('admin.openPanel')}
                 onPress={() => navigation.navigate('Main', { screen: 'Admin' })}
@@ -342,11 +360,12 @@ export default function ProfileScreen({ navigation }) {
         )}
 
         {/* ---------- SETTINGS ---------- */}
-        <Text style={styles.sectionLabel}>{t('profile.settings')}</Text>
+        <Text style={[styles.sectionLabel, rtl.text]}>{t('profile.settings')}</Text>
         <View style={styles.card}>
           <Row
             styles={styles}
             colors={colors}
+            rtl={rtl}
             icon="notifications-outline"
             label={t('profile.notifications')}
             onPress={() => Alert.alert(t('profile.notifications'), t('profile.notifMsg'))}
@@ -354,6 +373,7 @@ export default function ProfileScreen({ navigation }) {
           <Row
             styles={styles}
             colors={colors}
+            rtl={rtl}
             icon="language-outline"
             label={t('profile.language')}
             value={currentLanguage.native}
@@ -362,6 +382,7 @@ export default function ProfileScreen({ navigation }) {
           <Row
             styles={styles}
             colors={colors}
+            rtl={rtl}
             icon="location-outline"
             label={t('profile.city')}
             value={city}
@@ -376,6 +397,7 @@ export default function ProfileScreen({ navigation }) {
             <Row
               styles={styles}
               colors={colors}
+              rtl={rtl}
               icon="person-outline"
               label={t('profile.edit')}
               onPress={() => navigation.navigate('EditProfile')}
@@ -383,6 +405,7 @@ export default function ProfileScreen({ navigation }) {
             <Row
               styles={styles}
               colors={colors}
+              rtl={rtl}
               icon="key-outline"
               label={t('profile.changePassword')}
               onPress={() => navigation.navigate('ChangePassword')}
@@ -392,11 +415,12 @@ export default function ProfileScreen({ navigation }) {
         )}
 
         {/* ---------- ABOUT ---------- */}
-        <Text style={styles.sectionLabel}>{t('profile.about')}</Text>
+        <Text style={[styles.sectionLabel, rtl.text]}>{t('profile.about')}</Text>
         <View style={styles.card}>
           <Row
             styles={styles}
             colors={colors}
+            rtl={rtl}
             icon="help-circle-outline"
             label={t('profile.help')}
             onPress={() => Alert.alert(t('profile.help'), t('profile.helpMsg'))}
@@ -404,6 +428,7 @@ export default function ProfileScreen({ navigation }) {
           <Row
             styles={styles}
             colors={colors}
+            rtl={rtl}
             icon="document-text-outline"
             label={t('profile.terms')}
             onPress={() => Alert.alert(t('profile.terms'), t('profile.termsMsg'))}
@@ -412,6 +437,7 @@ export default function ProfileScreen({ navigation }) {
           <Row
             styles={styles}
             colors={colors}
+            rtl={rtl}
             icon="information-circle-outline"
             label={t('profile.version')}
             value="1.0.0"
@@ -421,7 +447,7 @@ export default function ProfileScreen({ navigation }) {
 
         {/* ---------- LOG OUT ---------- */}
         {isLoggedIn && (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <TouchableOpacity style={[styles.logoutButton, rtl.row]} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={18} color={colors.danger} />
             <Text style={styles.logoutText}>{t('profile.logout')}</Text>
           </TouchableOpacity>

@@ -323,20 +323,76 @@ export async function listUsers() {
   return db.getAllAsync(`SELECT ${PUBLIC_USER_COLUMNS} FROM users ORDER BY created_at DESC`);
 }
 
+// ---------------------------------------------------------------------------
+// createUser({ name, email, password, role }) - an ADMIN creates an account
+// for somebody else.
+//
+// WHY THIS EXISTS SEPARATELY FROM signUp():
+// signUp() logs you IN as the account it just made - which is exactly right
+// when a visitor registers themselves, and exactly wrong when an admin adds a
+// colleague. An admin would be thrown out of their own session halfway through.
+// So this does everything signUp does EXCEPT touch the session table, and it
+// can also set the role, which self-registration must never be allowed to do.
+// ---------------------------------------------------------------------------
+export async function createUser({ name, email, password, role = 'user' }) {
+  const db = await getDb();
+
+  const cleanName = (name || '').trim();
+  const cleanEmail = normaliseEmail(email);
+
+  // Same validation as signUp - a screen must never be the only guard.
+  if (cleanName.length < 2) return { ok: false, error: 'nameTooShort' };
+  if (!isValidEmail(cleanEmail)) return { ok: false, error: 'emailInvalid' };
+  if (!password || password.length < 6) return { ok: false, error: 'passwordTooShort' };
+  if (role !== 'user' && role !== 'admin') return { ok: false, error: 'badRole' };
+
+  const existing = await db.getFirstAsync('SELECT id FROM users WHERE email = ?', [cleanEmail]);
+  if (existing) return { ok: false, error: 'emailTaken' };
+
+  const { hash, salt } = await hashPassword(password);
+
+  const result = await db.runAsync(
+    `INSERT INTO users (name, email, password_hash, password_salt, role, language, theme_mode, city, created_at)
+     VALUES (?, ?, ?, ?, ?, 'en', 'light', 'Bizerte', ?)`,
+    [cleanName, cleanEmail, hash, salt, role, nowIso()]
+  );
+
+  // Note what is NOT here: no writeSession() call. The admin stays logged in
+  // as themselves.
+  return { ok: true, user: await findUserById(result.lastInsertRowId) };
+}
+
+// ---------------------------------------------------------------------------
+// countAdmins() - how many admin accounts exist.
+//
+// The screen uses this to decide whether it is safe to offer "remove admin" on
+// your own row: with two or more admins you may demote yourself, with only one
+// you would lock everybody out of moderation.
+// ---------------------------------------------------------------------------
+export async function countAdmins() {
+  const db = await getDb();
+  const row = await db.getFirstAsync("SELECT COUNT(*) AS total FROM users WHERE role = 'admin'");
+  return row?.total ?? 0;
+}
+
 // setUserRole({ userId, role }) - promote a user to admin, or demote them.
 export async function setUserRole({ userId, role }) {
   const db = await getDb();
   if (role !== 'user' && role !== 'admin') return { ok: false, error: 'badRole' };
 
+  // Does this account still exist?
+  // WHY THIS MATTERS: an UPDATE against a row that is not there changes nothing
+  // and reports no error at all. Without this check we would return "ok" and
+  // the screen would show a success message for something that never happened.
+  const target = await db.getFirstAsync('SELECT role FROM users WHERE id = ?', [userId]);
+  if (!target) return { ok: false, error: 'userNotFound' };
+
   // Guard: never remove the LAST admin, or nobody could moderate the app again.
-  if (role === 'user') {
+  if (role === 'user' && target.role === 'admin') {
     const { count } = await db.getFirstAsync(
       "SELECT COUNT(*) AS count FROM users WHERE role = 'admin'"
     );
-    const target = await db.getFirstAsync('SELECT role FROM users WHERE id = ?', [userId]);
-    if (count <= 1 && target?.role === 'admin') {
-      return { ok: false, error: 'lastAdmin' };
-    }
+    if (count <= 1) return { ok: false, error: 'lastAdmin' };
   }
 
   await db.runAsync('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
@@ -350,9 +406,13 @@ export async function setUserRole({ userId, role }) {
 export async function deleteUser(userId) {
   const db = await getDb();
 
-  // Same guard as above: refuse to delete the last remaining admin.
+  // Same "does it still exist" check as setUserRole - a DELETE against a
+  // missing row is silently a no-op, which would look like success.
   const target = await db.getFirstAsync('SELECT role FROM users WHERE id = ?', [userId]);
-  if (target?.role === 'admin') {
+  if (!target) return { ok: false, error: 'userNotFound' };
+
+  // Refuse to delete the last remaining admin.
+  if (target.role === 'admin') {
     const { count } = await db.getFirstAsync(
       "SELECT COUNT(*) AS count FROM users WHERE role = 'admin'"
     );

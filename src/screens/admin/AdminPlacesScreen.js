@@ -53,9 +53,18 @@ import * as placeRepo from '../../db/placeRepo';
 // looking like it was drawn by the same hand as all the others.
 import { useTheme, radius, spacing } from '../../theme/colors';
 
+// useRTL() tells this screen which way the language reads. Arabic runs right to
+// left, so rows have to be mirrored and text right-aligned. Every helper it
+// returns is null in English and French, so adding them is free there.
+import { useRTL } from '../../theme/rtl';
+
 export default function AdminPlacesScreen({ navigation }) {
   const { colors } = useTheme();
   const t = useT();
+
+  // The mirroring helpers used in the JSX below. Nothing they return has any
+  // effect unless the language is Arabic.
+  const rtl = useRTL();
 
   // Styles depend on the palette, so they are built inside the component.
   // useMemo rebuilds the StyleSheet only when `colors` actually changes - i.e.
@@ -204,7 +213,9 @@ export default function AdminPlacesScreen({ navigation }) {
             and the text - the buttons underneath are separate components, so
             tapping "Approve" never accidentally opens the place as well. */}
         <TouchableOpacity
-          style={styles.body}
+          // rtl.row mirrors this row in Arabic - photo on the right, text on
+          // the left. It does nothing in English.
+          style={[styles.body, rtl.row]}
           activeOpacity={0.75}
           onPress={() => navigation.navigate('PlaceDetail', { placeId: place.id })}
           accessibilityRole="button"
@@ -221,17 +232,20 @@ export default function AdminPlacesScreen({ navigation }) {
           <View style={styles.info}>
             {/* numberOfLines={1} turns anything too long into "Restaurant du..."
                 instead of wrapping and making rows different heights. */}
-            <Text style={styles.name} numberOfLines={1}>
+            <Text style={[styles.name, rtl.text]} numberOfLines={1}>
               {place.name}
             </Text>
 
             {subtitle ? (
-              <Text style={styles.subtitle} numberOfLines={1}>
+              <Text style={[styles.subtitle, rtl.text]} numberOfLines={1}>
                 {subtitle}
               </Text>
             ) : null}
 
-            <View style={styles.metaRow}>
+            {/* rtl.row swaps the badge and the author name over in Arabic. The
+                badge itself already mirrors on its own, so we only flip the
+                order here and leave the component alone. */}
+            <View style={[styles.metaRow, rtl.row]}>
               {/* The coloured Pending / Approved / Hidden pill. It needs the
                   translator passed in so the word itself is localised. */}
               <StatusBadge status={place.status} t={t} />
@@ -240,7 +254,7 @@ export default function AdminPlacesScreen({ navigation }) {
                   render this when there is a name to show. `x ? y : null` is how
                   you write "render this only if" inside JSX. */}
               {place.authorName ? (
-                <Text style={styles.author} numberOfLines={1}>
+                <Text style={[styles.author, rtl.text]} numberOfLines={1}>
                   {t('admin.by')} {place.authorName}
                 </Text>
               ) : null}
@@ -336,7 +350,9 @@ export default function AdminPlacesScreen({ navigation }) {
       {/* THE FILTER ROW. flexWrap 'wrap' lets the chips drop to a second line on
           a narrow phone, or in a language with longer words, instead of being
           squashed or pushed off the edge. */}
-      <View style={styles.filterRow}>
+      {/* rtl.row starts the chips from the right in Arabic, which is where the
+          eye begins there. It is null in English, so nothing moves. */}
+      <View style={[styles.filterRow, rtl.row]}>
         {filters.map((f) => (
           // `key` is required whenever you build elements from an array. React
           // uses it to tell the items apart between renders so it can reuse the

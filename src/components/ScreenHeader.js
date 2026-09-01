@@ -13,6 +13,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { useTheme, spacing, MIN_TAP } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 import IconButton from './IconButton';
 
 // ---------------------------------------------------------------------------
@@ -34,15 +35,17 @@ export default function ScreenHeader({
   style,
 }) {
   const { colors } = useTheme();
+  // rtl mirrors the row and flips the back arrow when the language is Arabic.
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
-    <View style={[styles.header, style]}>
+    <View style={[styles.header, rtl.row, style]}>
       {/* LEFT. When there is no back button we still render an empty box of
           the same width, so the title stays visually centred instead of
           jumping left. This is a common trick for three-part headers. */}
       {onBack ? (
-        <IconButton name="chevron-back" size={22} onPress={onBack} accessibilityLabel="Go back" />
+        <IconButton name={rtl.backIcon} size={22} onPress={onBack} accessibilityLabel="Go back" />
       ) : (
         <View style={styles.spacer} />
       )}
@@ -50,11 +53,11 @@ export default function ScreenHeader({
       {/* MIDDLE - the title. flex:1 lets it take the leftover space and,
           crucially, lets it SHRINK when the text is long. */}
       <View style={styles.titleWrap}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, rtl.textCenter]} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={[styles.subtitle, rtl.textCenter]} numberOfLines={1}>
             {subtitle}
           </Text>
         ) : null}

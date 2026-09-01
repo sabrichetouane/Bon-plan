@@ -52,10 +52,19 @@ import { useStore, useT } from '../../store';
 // of that file in one object, so we call them as commentRepo.listAllComments().
 import * as commentRepo from '../../db/commentRepo';
 
+// useRTL() reports which way the language reads. Arabic runs right to left, so
+// rows have to be mirrored and text right-aligned. Every helper it returns is
+// null in English and French, so using them below is free in those languages.
+import { useRTL } from '../../theme/rtl';
+
 export default function AdminCommentsScreen({ navigation }) {
   // The active palette (light or dark). It changes when the user flips the
   // theme switch in Profile, and this screen re-renders on its own.
   const { colors } = useTheme();
+
+  // The mirroring helpers used in the JSX below. They only do something when
+  // the chosen language is Arabic.
+  const rtl = useRTL();
 
   // t('some.key') returns that sentence in the language the user picked.
   // We never write a raw English string that a user will read.
@@ -232,7 +241,9 @@ export default function AdminCommentsScreen({ navigation }) {
         accessibilityRole="button"
       >
         {/* ---- TOP ROW: avatar | author + place | stars ---- */}
-        <View style={styles.topRow}>
+        {/* rtl.row mirrors this row in Arabic: avatar on the right, stars on
+            the left. It is null in English, so the row does not move there. */}
+        <View style={[styles.topRow, rtl.row]}>
           <View style={styles.avatar}>
             <Text style={styles.avatarLetter} numberOfLines={1}>
               {initial}
@@ -244,14 +255,17 @@ export default function AdminCommentsScreen({ navigation }) {
               minWidth:0 a long name would push the stars off the right edge
               instead of being cut with an ellipsis - a classic flexbox trap. */}
           <View style={styles.identity}>
-            <Text style={styles.author} numberOfLines={1}>
+            <Text style={[styles.author, rtl.text]} numberOfLines={1}>
               {item.authorName}
             </Text>
 
             {/* Which place this review is about, with a small pin in front. */}
-            <View style={styles.placeRow}>
+            {/* The pin sits before the place name, so this little row mirrors
+                too. The gap comes from `gap`, not a margin, so nothing ends up
+                on the wrong side once the order is reversed. */}
+            <View style={[styles.placeRow, rtl.row]}>
               <Ionicons name="location-outline" size={11} color={colors.textMuted} />
-              <Text style={styles.placeName} numberOfLines={1}>
+              <Text style={[styles.placeName, rtl.text]} numberOfLines={1}>
                 {item.placeName}
               </Text>
             </View>
@@ -264,7 +278,9 @@ export default function AdminCommentsScreen({ navigation }) {
               five stars each time. A star is gold while its index is below the
               rating, otherwise it is drawn in the border colour, which reads
               as "empty" without needing a second icon. */}
-          <View style={styles.stars}>
+          {/* The stars fill up from the start of the line, which is the right
+              in Arabic - so this row mirrors as well. */}
+          <View style={[styles.stars, rtl.row]}>
             {[...Array(5)].map((_, i) => (
               <Ionicons
                 key={i}
@@ -279,15 +295,17 @@ export default function AdminCommentsScreen({ navigation }) {
         {/* ---- THE REVIEW ITSELF ----
             numberOfLines={4} stops a very long rant from making one card as
             tall as the whole screen; the full text is on the place page. */}
-        <Text style={styles.reviewText} numberOfLines={4}>
+        <Text style={[styles.reviewText, rtl.text]} numberOfLines={4}>
           {item.text}
         </Text>
 
         {/* ---- BOTTOM ROW: status pill on the left, actions on the right ---- */}
-        <View style={styles.actionsRow}>
+        {/* Status pill at one end, buttons at the other: which end is which
+            swaps over in Arabic, hence rtl.row. */}
+        <View style={[styles.actionsRow, rtl.row]}>
           <StatusBadge status={item.status} t={t} />
 
-          <View style={styles.actions}>
+          <View style={[styles.actions, rtl.row]}>
             {item.status === 'hidden' ? (
               // A hidden review: the useful action is putting it back, so it
               // gets the solid (primary) button.
@@ -340,7 +358,9 @@ export default function AdminCommentsScreen({ navigation }) {
 
       {/* The filter chips. There are only three, so a plain row is enough -
           no horizontal scroll needed. */}
-      <View style={styles.chipsRow}>
+      {/* rtl.row starts the chips from the right in Arabic, which is where the
+          eye begins there. It is null in English, so nothing moves. */}
+      <View style={[styles.chipsRow, rtl.row]}>
         {FILTERS.map((f) => (
           <Chip
             key={f.id}

@@ -15,6 +15,9 @@ import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platfo
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, radius, spacing } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import * as userRepo from '../db/userRepo';
 
@@ -25,6 +28,7 @@ import { PrimaryButton } from '../components/Buttons';
 
 export default function ChangePasswordScreen({ navigation }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();
   const { userId } = useStore();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -91,9 +95,9 @@ export default function ChangePasswordScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
         >
           {/* A short explanation of why the first box exists. */}
-          <View style={styles.note}>
+          <View style={[styles.note, rtl.row]}>
             <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
-            <Text style={styles.noteText}>
+            <Text style={[styles.noteText, rtl.text]}>
               {t('auth.currentPassword')} — {t('common.required')}
             </Text>
           </View>

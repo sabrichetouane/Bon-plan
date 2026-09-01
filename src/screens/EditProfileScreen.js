@@ -18,6 +18,9 @@ import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } fr
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, radius, spacing } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import * as userRepo from '../db/userRepo';
 
@@ -28,6 +31,7 @@ import { PrimaryButton } from '../components/Buttons';
 
 export default function EditProfileScreen({ navigation }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();
   const { user, userId, refreshUser } = useStore();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -117,9 +121,9 @@ export default function EditProfileScreen({ navigation }) {
 
           {/* The success confirmation, shown only right after a save. */}
           {saved && (
-            <View style={styles.savedBox}>
+            <View style={[styles.savedBox, rtl.row]}>
               <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-              <Text style={styles.savedText}>{t('profile.saved')}</Text>
+              <Text style={[styles.savedText, rtl.text]}>{t('profile.saved')}</Text>
             </View>
           )}
 

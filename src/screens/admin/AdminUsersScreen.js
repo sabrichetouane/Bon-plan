@@ -1,432 +1,482 @@
-// ============================================================
-// AdminUsersScreen.js - THE ADMIN "USER ACCOUNTS" SCREEN
-// Lists every account registered in the app so an administrator
-// can search them, promote someone to admin, demote an admin
-// back to a normal user, or delete an account completely.
-// Two safety rules are enforced here: you can never act on your
-// OWN row, and the database refuses to remove the last admin.
-// ============================================================
+// ============================================================================
+// AdminUsersScreen.js - MANAGE ACCOUNTS (admin only)
+//
+// What an admin can do here:
+//   - CREATE a new account, and choose whether it is a user or an admin
+//   - promote a user to admin, or demote an admin back to user
+//   - delete an account
+//   - search the list by name or email
+//
+// TWO BUGS THIS SCREEN USED TO HAVE, both worth understanding:
+//
+// 1. THERE WAS NO WAY TO ADD ANYONE. The only function for making an account
+//    was signUp(), which logs you IN as the new account - so an admin using it
+//    would be thrown out of their own session. There is now a separate
+//    userRepo.createUser() that does not touch the session.
+//
+// 2. THE SCREEN LOOKED COMPLETELY DEAD ON A FRESH INSTALL. It hid every button
+//    on your own row, and on a new database the seeded admin is the ONLY
+//    account - so you saw one row with nothing to press.
+//    Now: you can still never DELETE yourself (that would be a trapdoor), but
+//    you can demote yourself as long as another admin exists, and the reason is
+//    written on screen instead of the buttons silently vanishing.
+// ============================================================================
 
-// ------------------------------------------------------------------
-// IMPORTS
-// In React Native every screen is just a JavaScript function that
-// returns a description of what to draw. Everything it needs -
-// components, hooks, database helpers - has to be imported first.
-// ------------------------------------------------------------------
-
-// React itself, plus the three "hooks" this screen uses.
-// A hook is a function starting with "use" that lets a plain function
-// component remember things and react to events.
-//   useState    -> remember a value between redraws (and redraw when it changes)
-//   useCallback -> remember a FUNCTION so it is not rebuilt on every redraw
-//   useMemo     -> remember a computed RESULT so we do not recompute it every redraw
-import React, { useState, useCallback, useMemo } from 'react';
-
-// The built-in building blocks of React Native.
-//   View      = a box (like a <div>)
-//   Text      = the ONLY thing allowed to display characters
-//   FlatList  = a scrolling list that only renders the rows currently on screen
-//   Alert     = the native "are you sure?" pop-up of iOS / Android
-import { StyleSheet, View, Text, FlatList, Alert } from 'react-native';
-
-// useFocusEffect runs code every time this screen becomes visible again.
-// Unlike useEffect (which runs once when the screen is first created), this
-// also fires when the user presses "back" from another screen, so the list
-// is never stale.
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
-// Shared design tokens. Using these constants instead of typing numbers
-// like "24" by hand is what keeps every screen of the app looking identical.
 import { useTheme, radius, spacing } from '../../theme/colors';
+import { useStore, useT } from '../../store';
+import * as userRepo from '../../db/userRepo';
 
-// Shared UI components - already written and used by the other screens.
 import Screen from '../../components/Screen';
 import ScreenHeader from '../../components/ScreenHeader';
 import SearchField from '../../components/SearchField';
+import FormField from '../../components/FormField';
 import IconButton from '../../components/IconButton';
-import { SecondaryButton } from '../../components/Buttons';
+import Chip from '../../components/Chip';
+import { PrimaryButton, SecondaryButton, ButtonRow } from '../../components/Buttons';
 import { Loading, EmptyState } from '../../components/Feedback';
 
-// The global store: who is logged in, and the translator function.
-import { useStore, useT } from '../../store';
+// useRTL() reports which way the language reads. Arabic runs right to left, so
+// rows have to be mirrored and text right-aligned. Every helper it returns is
+// null in English and French, so using them below is free in those languages.
+// The shared components above already mirror themselves, so only this screen's
+// OWN rows and texts are touched.
+import { useRTL } from '../../theme/rtl';
 
-// The database layer. "* as userRepo" imports EVERY exported function of that
-// file in one object, so we call them as userRepo.listUsers(), etc.
-import * as userRepo from '../../db/userRepo';
-
-// ------------------------------------------------------------------
-// THE SCREEN COMPONENT
-// React Navigation passes a `navigation` object to every screen it
-// renders; we use it only to go back to the admin dashboard.
-// ------------------------------------------------------------------
 export default function AdminUsersScreen({ navigation }) {
-  // The active palette (light or dark). It changes when the user flips the
-  // theme switch in Profile, and this screen redraws itself automatically.
   const { colors } = useTheme();
-
-  // makeStyles() is at the BOTTOM of this file. We must build the stylesheet
-  // inside the component because the colours are only known at runtime.
-  // useMemo caches the result and rebuilds it ONLY when `colors` changes -
-  // without it we would create a brand-new StyleSheet on every keystroke.
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-
-  // t('some.key') turns a key into text in the user's language (EN / FR / AR).
-  // We never hard-code an English string that a user can read.
   const t = useT();
 
-  // The id of the person currently logged in. We need it to recognise the
-  // admin's OWN row in the list and hide the dangerous buttons on it.
-  const { userId } = useStore();
+  // The mirroring helpers used in the JSX below. They only do something when
+  // the chosen language is Arabic.
+  const rtl = useRTL();
 
-  // ----------------------------------------------------------------
-  // STATE
-  // useState returns a pair: [the current value, a function to change it].
-  // Calling the setter is what tells React "redraw this screen".
-  // Never modify these values directly (users.push(...) does nothing) -
-  // always pass a NEW value to the setter, so React can see the difference.
-  // ----------------------------------------------------------------
+  // `userId` is the admin currently logged in - we compare against it to find
+  // their own row in the list.
+  const { userId, isAdmin } = useStore();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  // Every account read from SQLite. Starts as an empty array so that the
-  // first render can already call .filter() and .map() on it without crashing.
   const [users, setUsers] = useState([]);
-
-  // true while the database read is in flight -> we show a spinner.
+  const [adminCount, setAdminCount] = useState(0);
   const [loading, setLoading] = useState(true);
-
-  // What the admin typed in the search bar.
   const [query, setQuery] = useState('');
 
-  // The id of the row whose button was just tapped, or null.
-  // Writing to the database takes a moment; keeping this here lets us disable
-  // that row's buttons so an impatient double-tap cannot fire the same
-  // promotion (or deletion) twice.
-  const [busyId, setBusyId] = useState(null);
+  // --- The "create account" form. Closed until the + button is pressed. ------
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState('user');
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  // ----------------------------------------------------------------
-  // LOADING THE DATA
-  // ----------------------------------------------------------------
-
-  // `async` marks a function that does slow work; `await` pauses inside it
-  // until the database answers, WITHOUT freezing the interface. The function
-  // immediately returns a Promise, and the code after each await runs later.
+  // -------------------------------------------------------------------------
+  // load() - read the account list and how many admins exist.
   //
-  // useCallback keeps the SAME function object between renders (its
-  // dependency list is empty, so nothing can make it stale). That matters
-  // because useFocusEffect below depends on it: a new function every render
-  // would restart the effect endlessly.
+  // useCallback keeps this the same function between renders, so the
+  // useFocusEffect below does not restart it endlessly.
+  // -------------------------------------------------------------------------
   const load = useCallback(async () => {
-    setLoading(true);
     try {
-      const data = await userRepo.listUsers();
-      setUsers(data);
+      // Promise.all runs both reads at the same time instead of one after the other.
+      const [rows, admins] = await Promise.all([userRepo.listUsers(), userRepo.countAdmins()]);
+      setUsers(rows);
+      setAdminCount(admins);
     } catch (e) {
-      // A crash inside a screen would show a red error page to the user.
-      // Logging instead means the app survives and we still see the reason.
       console.warn('[AdminUsersScreen] load failed:', e);
     } finally {
-      // `finally` runs whether the try succeeded or threw, so the spinner
-      // can never get stuck on screen after a failure.
       setLoading(false);
     }
   }, []);
 
-  // Re-read the list every time the screen comes back into view, so a role
-  // changed elsewhere (or a user who signed up meanwhile) shows up here.
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // useFocusEffect re-runs every time the screen comes back into view, so a
+  // change made elsewhere shows up when you return.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
-  // ----------------------------------------------------------------
-  // SEARCH FILTERING
-  // The filtering happens in plain JavaScript, not in SQL: the account list
-  // of a student project is small, and doing it here means results update
-  // instantly on every keystroke with no database round-trip.
-  // ----------------------------------------------------------------
-  const visibleUsers = useMemo(() => {
-    // .trim() removes spaces at both ends. Without it, typing "ali " (the
-    // space phones insert automatically after a word) would match nothing.
-    // .toLowerCase() on BOTH sides is what makes the search case-insensitive.
+  // -------------------------------------------------------------------------
+  // The visible list, after the search box.
+  //
+  // useMemo means the filtering only re-runs when the list or the text
+  // changes, rather than on every unrelated re-render.
+  // -------------------------------------------------------------------------
+  const visible = useMemo(() => {
+    // .trim() BEFORE .toLowerCase(), so typing "sabri " with a trailing space
+    // still matches. Forgetting the trim is a classic silent search bug.
     const needle = query.trim().toLowerCase();
-
-    // Empty search box -> show everybody, no filtering work at all.
     if (!needle) return users;
 
-    // .filter() builds a NEW array with only the rows that pass the test;
-    // the original `users` array is left untouched, which is exactly what
-    // React wants (state must never be edited in place).
-    return users.filter((row) => {
-      // `|| ''` guards against a null column: null.toLowerCase() would crash.
-      const name = (row.name || '').toLowerCase();
-      const email = (row.email || '').toLowerCase();
-      // Matching name OR email means "ahmed" and "ahmed@" both find the row.
-      return name.includes(needle) || email.includes(needle);
-    });
-  }, [users, query]); // recompute only when the data or the search text change
+    return users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle)
+    );
+  }, [users, query]);
 
-  // ----------------------------------------------------------------
-  // ACTION 1 - PROMOTE OR DEMOTE
-  // ----------------------------------------------------------------
-  const toggleRole = useCallback(
-    async (row) => {
-      // A tiny state machine: an admin becomes a user, a user becomes an admin.
-      const nextRole = row.role === 'admin' ? 'user' : 'admin';
+  // =========================================================================
+  // CREATE AN ACCOUNT
+  // =========================================================================
+  const handleCreate = async () => {
+    setErrors({});
+    setSaving(true);
+    try {
+      const result = await userRepo.createUser({
+        name: newName,
+        email: newEmail,
+        password: newPassword,
+        role: newRole,
+      });
 
-      setBusyId(row.id); // grey this row's buttons out while we write
-      try {
-        const result = await userRepo.setUserRole({ userId: row.id, role: nextRole });
-
-        // WHY THIS GUARD EXISTS:
-        // The database refuses to demote the LAST remaining administrator.
-        // If it allowed it, there would be nobody left who can approve places,
-        // hide abusive comments or promote anyone else - the moderation side
-        // of the app would be locked forever with no way back in.
-        // In that case the repository returns { ok:false, error:'lastAdmin' }
-        // and has changed NOTHING, so we simply explain and stop here.
-        if (!result || !result.ok) {
-          Alert.alert(
-            t('common.error'),
-            result && result.error === 'lastAdmin' ? t('error.lastAdmin') : t('common.error')
-          );
-          return; // returning early skips the reload - nothing changed
-        }
-
-        // Success: re-read the list so the pill and the button label update.
-        await load();
-      } catch (e) {
-        console.warn('[AdminUsersScreen] setUserRole failed:', e);
-        Alert.alert(t('common.error'), t('common.error'));
-      } finally {
-        setBusyId(null); // re-enable the buttons whatever happened
+      if (!result.ok) {
+        // Put the message under the field that caused it.
+        const field =
+          result.error === 'nameTooShort'
+            ? 'name'
+            : result.error === 'passwordTooShort'
+            ? 'password'
+            : 'email';
+        setErrors({ [field]: 'error.' + result.error });
+        return;
       }
-    },
-    [load, t] // rebuild this function only if the loader or the language changes
-  );
 
-  // ----------------------------------------------------------------
-  // ACTION 2 - DELETE AN ACCOUNT (the actual database call)
-  // ----------------------------------------------------------------
-  const doDelete = useCallback(
-    async (row) => {
-      setBusyId(row.id);
-      try {
-        const result = await userRepo.deleteUser(row.id);
+      // Empty the form and close it, then reload so the new account appears.
+      setNewName('');
+      setNewEmail('');
+      setNewPassword('');
+      setNewRole('user');
+      setCreating(false);
+      load();
+    } catch (e) {
+      console.warn('[AdminUsersScreen] create failed:', e);
+      setErrors({ email: 'common.error' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
-        // Same protection as above: deleting the last admin would leave the
-        // app with no moderator at all, so the repository blocks it and
-        // returns { ok:false, error:'lastAdmin' } without touching the data.
-        if (!result || !result.ok) {
-          Alert.alert(
-            t('common.error'),
-            result && result.error === 'lastAdmin' ? t('error.lastAdmin') : t('common.error')
-          );
-          return;
-        }
+  // =========================================================================
+  // CHANGE A ROLE
+  // =========================================================================
+  const handleToggleRole = async (row) => {
+    // If they are an admin we are demoting them, otherwise promoting.
+    const nextRole = row.role === 'admin' ? 'user' : 'admin';
 
-        await load();
-      } catch (e) {
-        console.warn('[AdminUsersScreen] deleteUser failed:', e);
-        Alert.alert(t('common.error'), t('common.error'));
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [load, t]
-  );
+    // Demoting yourself is a one-way door - once you are a plain user you
+    // cannot open this screen again. So confirm it explicitly.
+    if (row.id === userId && nextRole === 'user') {
+      Alert.alert(t('admin.removeAdmin'), t('admin.demoteSelfMsg'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.confirm'), style: 'destructive', onPress: () => applyRole(row, nextRole) },
+      ]);
+      return;
+    }
 
-  // Deleting is irreversible (the account's comments, plans and favourites go
-  // with it), so we always ask first. Alert.alert takes a title, a message and
-  // an array of buttons; `style: 'destructive'` paints the label red on iOS.
-  const confirmDelete = useCallback(
-    (row) => {
-      Alert.alert(
-        t('admin.deleteTitle'),
-        // The message contains "%s"; .replace() drops the real name into it,
-        // which keeps the sentence grammatical in every language.
-        t('admin.deleteUserMsg').replace('%s', row.name || row.email || ''),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('common.delete'), style: 'destructive', onPress: () => doDelete(row) },
-        ]
-      );
-    },
-    [doDelete, t]
-  );
+    applyRole(row, nextRole);
+  };
 
-  // ----------------------------------------------------------------
-  // ONE ROW OF THE LIST
-  // FlatList calls this for every visible item and hands us { item }.
-  // Defining it with useCallback avoids rebuilding it on each render.
-  // ----------------------------------------------------------------
-  const renderUser = useCallback(
-    ({ item }) => {
-      // Is this row the logged-in administrator looking at themselves?
-      // If so we hide both action buttons: demoting yourself would lock you
-      // out of the admin area instantly, and deleting yourself would erase
-      // the account you are signed in with.
-      const isMe = item.id === userId;
+  const applyRole = async (row, nextRole) => {
+    const result = await userRepo.setUserRole({ userId: row.id, role: nextRole });
 
-      const isAdminRow = item.role === 'admin';
+    if (!result.ok) {
+      // The database refuses to remove the last admin - otherwise nobody
+      // could ever moderate the app again.
+      Alert.alert(t('common.error'), t('error.' + result.error));
+      return;
+    }
+    load();
+  };
 
-      // Disable the buttons of the row that is currently being saved.
-      const isBusy = busyId === item.id;
+  // =========================================================================
+  // DELETE AN ACCOUNT
+  // =========================================================================
+  const handleDelete = (row) => {
+    Alert.alert(
+      t('admin.deleteTitle'),
+      t('admin.deleteUserMsg').replace('%s', row.name || row.email),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            const result = await userRepo.deleteUser(row.id);
+            if (!result.ok) {
+              Alert.alert(t('common.error'), t('error.' + result.error));
+              return;
+            }
+            load();
+          },
+        },
+      ]
+    );
+  };
 
-      // The avatar shows a single big letter instead of a photo (accounts have
-      // no picture in this app). charAt(0) is safe on an empty string - it
-      // returns '' rather than crashing - and '?' covers a nameless account.
-      const initial = (item.name || item.email || '?').trim().charAt(0).toUpperCase();
+  // Anyone who is not an admin should never see this screen. The tab is hidden
+  // for them, but checking here too means no route can sneak them in.
+  if (!isAdmin) {
+    return (
+      <Screen edges={['top', 'left', 'right', 'bottom']}>
+        <ScreenHeader title={t('admin.users')} onBack={() => navigation.goBack()} />
+        <EmptyState icon="lock-closed-outline" title={t('error.notAllowed')} />
+      </Screen>
+    );
+  }
 
-      return (
-        <View style={styles.card}>
-          {/* --- TOP: avatar, identity, role pill --- */}
-          <View style={styles.identityRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarLetter}>{initial}</Text>
-            </View>
-
-            {/* flex:1 lets this column take the leftover width, and
-                minWidth:0 is the part people forget: without it a very long
-                email refuses to shrink and pushes the role pill off screen. */}
-            <View style={styles.identity}>
-              {/* numberOfLines={1} truncates with "..." instead of wrapping,
-                  so every card keeps the same height in the list. */}
-              <Text style={styles.name} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={styles.email} numberOfLines={1}>
-                {item.email}
-              </Text>
-            </View>
-
-            {/* The role pill. It must stay fully readable, so flexShrink:0
-                (set in the stylesheet) stops flexbox from squashing it. */}
-            <View style={[styles.rolePill, isAdminRow ? styles.rolePillAdmin : styles.rolePillUser]}>
-              <Text
-                style={[styles.roleText, isAdminRow ? styles.roleTextAdmin : styles.roleTextUser]}
-                numberOfLines={1}
-              >
-                {isAdminRow ? t('admin.roleAdmin') : t('admin.roleUser')}
-              </Text>
-            </View>
-          </View>
-
-          {/* --- BOTTOM: the actions, or the "(you)" note --- */}
-          {isMe ? (
-            // Your own row: no buttons at all, just a quiet reminder of why.
-            <Text style={styles.selfLabel}>({t('comment.you')})</Text>
-          ) : (
-            <View style={styles.actions}>
-              {/* full={false} + flex:1 makes the button fill the row's free
-                  width while leaving room for the delete circle beside it. */}
-              <SecondaryButton
-                title={isAdminRow ? t('admin.removeAdmin') : t('admin.makeAdmin')}
-                icon={isAdminRow ? 'person-outline' : 'shield-checkmark-outline'}
-                onPress={() => toggleRole(item)}
-                disabled={isBusy}
-                full={false}
-                style={styles.actionButton}
-              />
-
-              {/* IconButton is used rather than a bare TouchableOpacity because
-                  it already gives the icon an invisible 44pt tap area, the
-                  minimum size a finger can hit reliably. */}
-              <IconButton
-                name="trash-outline"
-                size={20}
-                color={colors.danger}
-                diameter={38}
-                onPress={() => confirmDelete(item)}
-                disabled={isBusy}
-                accessibilityLabel={t('common.delete')}
-              />
-            </View>
-          )}
-        </View>
-      );
-    },
-    [styles, colors, t, userId, busyId, toggleRole, confirmDelete]
-  );
-
-  // ----------------------------------------------------------------
-  // WHAT GETS DRAWN
-  // ----------------------------------------------------------------
   return (
-    // This screen is PUSHED on top of the stack (it is not a tab), so nothing
-    // else protects its bottom edge from the home indicator - we add 'bottom'
-    // to the safe-area edges ourselves.
     <Screen edges={['top', 'left', 'right', 'bottom']}>
-      <ScreenHeader title={t('admin.users')} onBack={() => navigation.goBack()} />
-
-      <SearchField
-        value={query}
-        onChangeText={setQuery}
-        placeholder={t('common.search')}
-        // Passing onClear makes the little X appear once there is text.
-        onClear={() => setQuery('')}
-        style={{ marginHorizontal: spacing.xl }}
+      <ScreenHeader
+        title={t('admin.users')}
+        subtitle={`${users.length} · ${adminCount} ${t('admin.roleAdmin')}`}
+        onBack={() => navigation.goBack()}
+        // The + opens and closes the create form.
+        rightIcon={creating ? 'close' : 'person-add'}
+        onRightPress={() => setCreating(!creating)}
       />
 
-      {/* Ternary in JSX: spinner while the first read is running, real list
-          afterwards. `cond ? a : b` is used because JSX cannot hold an if. */}
-      {loading ? (
-        <Loading />
-      ) : (
-        <FlatList
-          data={visibleUsers}
-          // keyExtractor gives React a stable identity per row. With it, React
-          // can move an existing row instead of throwing it away and building
-          // a new one - faster, and it keeps scroll position sane.
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderUser}
-          // Padding belongs on the CONTENT container, not on the list itself:
-          // put it on the list and the rows would be clipped while scrolling.
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          // Shown in place of the rows when `data` is empty - either the app
-          // has no accounts, or the search matched nothing.
-          ListEmptyComponent={
-            <EmptyState icon="people-outline" title={t('list.empty')} />
-          }
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.select({ ios: 'padding', android: 'height' })}
+      >
+        {/* ---------- CREATE ACCOUNT FORM ---------- */}
+        {creating && (
+          <View style={styles.createBox}>
+            {/* rtl.text right-aligns the heading in Arabic and is null in
+                English, so nothing moves for an English user. */}
+            <Text style={[styles.createTitle, rtl.text]}>{t('admin.newUser')}</Text>
+
+            <FormField
+              label={t('auth.name')}
+              icon="person-outline"
+              value={newName}
+              onChangeText={setNewName}
+              placeholder={t('auth.namePlaceholder')}
+              error={errors.name && t(errors.name)}
+            />
+
+            <FormField
+              label={t('auth.email')}
+              icon="mail-outline"
+              value={newEmail}
+              onChangeText={setNewEmail}
+              placeholder={t('auth.emailPlaceholder')}
+              keyboardType="email-address"
+              error={errors.email && t(errors.email)}
+            />
+
+            <FormField
+              label={t('auth.password')}
+              icon="lock-closed-outline"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder={t('auth.passwordPlaceholder')}
+              secure
+              error={errors.password && t(errors.password)}
+            />
+
+            {/* Role picker. The chip ids are the English values stored in the
+                database; only the LABELS are translated. Storing the translated
+                label would break the comparison in French. */}
+            <Text style={[styles.fieldLabel, rtl.text]}>{t('admin.role')}</Text>
+            {/* rtl.row starts the two chips from the right in Arabic. */}
+            <View style={[styles.roleRow, rtl.row]}>
+              <Chip
+                label={t('admin.roleUser')}
+                active={newRole === 'user'}
+                onPress={() => setNewRole('user')}
+              />
+              <Chip
+                label={t('admin.roleAdmin')}
+                icon="shield-checkmark"
+                active={newRole === 'admin'}
+                onPress={() => setNewRole('admin')}
+              />
+            </View>
+
+            <ButtonRow>
+              <SecondaryButton
+                title={t('common.cancel')}
+                onPress={() => setCreating(false)}
+                full={false}
+                style={styles.flexOne}
+              />
+              <PrimaryButton
+                title={t('admin.createUser')}
+                onPress={handleCreate}
+                loading={saving}
+                disabled={!newName.trim() || !newEmail.trim() || !newPassword}
+                full={false}
+                style={styles.flexOne}
+              />
+            </ButtonRow>
+          </View>
+        )}
+
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder={t('common.search')}
+          onClear={() => setQuery('')}
+          style={styles.search}
         />
-      )}
+
+        {loading ? (
+          <Loading />
+        ) : (
+          <FlatList
+            data={visible}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <EmptyState
+                icon="people-outline"
+                title={t('list.empty')}
+                subtitle={t('admin.nothingPendingSub')}
+              />
+            }
+            renderItem={({ item }) => {
+              const isMe = item.id === userId;
+              const isAdminRow = item.role === 'admin';
+
+              // You may demote yourself only if somebody else can still
+              // moderate. You may never delete yourself.
+              const canDemoteSelf = isMe && isAdminRow && adminCount > 1;
+              const canChangeRole = !isMe || canDemoteSelf;
+
+              return (
+                <View style={styles.card}>
+                  {/* rtl.row mirrors the head in Arabic: avatar on the right,
+                      role badge on the left. It is null in English. */}
+                  <View style={[styles.cardHead, rtl.row]}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {/* The first letter of the name, as a simple avatar.
+                            The ?. chain stops a missing name from crashing. */}
+                        {item.name?.[0]?.toUpperCase() || '?'}
+                      </Text>
+                    </View>
+
+                    {/* flex:1 + minWidth:0 lets a long email shrink instead of
+                        pushing the role badge off the right edge. */}
+                    <View style={styles.cardText}>
+                      <View style={[styles.nameRow, rtl.row]}>
+                        <Text style={[styles.name, rtl.text]} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        {isMe && <Text style={styles.youLabel}>({t('comment.you')})</Text>}
+                      </View>
+                      <Text style={[styles.email, rtl.text]} numberOfLines={1}>
+                        {item.email}
+                      </Text>
+                    </View>
+
+                    {/* flexShrink: 0 keeps the badge fully readable - the name
+                        and email are the parts that give way. */}
+                    <View style={[styles.roleBadge, isAdminRow && styles.roleBadgeAdmin]}>
+                      <Text style={[styles.roleText, isAdminRow && styles.roleTextAdmin]}>
+                        {isAdminRow ? t('admin.roleAdmin') : t('admin.roleUser')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* ---------- ACTIONS ---------- */}
+                  {/* The wide button and the trash circle swap ends in Arabic. */}
+                  <View style={[styles.actions, rtl.row]}>
+                    <SecondaryButton
+                      title={isAdminRow ? t('admin.removeAdmin') : t('admin.makeAdmin')}
+                      icon={isAdminRow ? 'person-outline' : 'shield-checkmark-outline'}
+                      onPress={() => handleToggleRole(item)}
+                      disabled={!canChangeRole}
+                      full={false}
+                      style={styles.flexOne}
+                    />
+
+                    {/* Deleting yourself is never offered - it would lock you
+                        out of your own account with no way back. */}
+                    <IconButton
+                      name="trash-outline"
+                      size={19}
+                      color={isMe ? colors.border : colors.danger}
+                      onPress={() => handleDelete(item)}
+                      disabled={isMe}
+                      accessibilityLabel={t('common.delete')}
+                    />
+                  </View>
+
+                  {/* Say WHY a button is greyed out, instead of leaving the
+                      admin guessing. This is the part that made the screen
+                      feel broken before. */}
+                  {isMe && (
+                    // Icon then sentence, so this row mirrors too. The 6pt gap
+                    // comes from `gap`, not a margin, so it stays correct once
+                    // the order is reversed.
+                    <View style={[styles.hintRow, rtl.row]}>
+                      <Ionicons name="information-circle-outline" size={13} color={colors.textMuted} />
+                      <Text style={[styles.hintText, rtl.text]}>
+                        {canDemoteSelf ? t('admin.selfHint') : t('admin.selfLastAdminHint')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            }}
+          />
+        )}
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
-// ============================================================
-// STYLES
-// A factory function, NOT a module-level StyleSheet.create: the colours are
-// only known once the component is running and the user's theme is read, so
-// the sheet has to be built inside the component (see useMemo above).
-// ============================================================
 const makeStyles = (colors) =>
   StyleSheet.create({
-    // spacing.xl (24) is the standard screen edge padding of the whole app.
-    // The extra bottom padding lets the last card scroll clear of the edge.
-    listContent: {
-      padding: spacing.xl,
-      gap: 12,
-      paddingBottom: spacing.xxl,
-      // Lets the EmptyState centre itself in the leftover space when the list
-      // has no rows, instead of hugging the top - same as the other admin lists.
-      flexGrow: 1,
-    },
+    flex: { flex: 1 },
+    flexOne: { flex: 1 },
 
-    // The standard flat card of this app: card background, hairline border,
-    // large radius, and deliberately NO shadow.
+    createBox: {
+      marginHorizontal: spacing.xl,
+      marginBottom: spacing.md,
+      padding: spacing.lg,
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+    },
+    createTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: spacing.lg,
+    },
+    fieldLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: spacing.sm,
+    },
+    roleRow: { flexDirection: 'row', gap: 8, marginBottom: spacing.lg },
+
+    search: { marginHorizontal: spacing.xl, marginBottom: spacing.sm },
+
+    // flexGrow lets the empty state fill and centre in the leftover space.
+    list: { padding: spacing.xl, paddingTop: spacing.sm, gap: 12, flexGrow: 1 },
+
     card: {
       backgroundColor: colors.card,
+      borderRadius: radius.lg,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      gap: spacing.md,
+      overflow: 'hidden',
     },
-
-    identityRow: {
-      flexDirection: 'row',  // avatar | identity | pill, side by side
+    cardHead: {
+      flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
+      padding: spacing.md,
     },
-
-    // A perfect circle needs borderRadius = half the width.
     avatar: {
       width: 44,
       height: 44,
@@ -434,57 +484,43 @@ const makeStyles = (colors) =>
       backgroundColor: colors.primarySoft,
       alignItems: 'center',
       justifyContent: 'center',
-      flexShrink: 0,         // never let flexbox squash the circle into an egg
     },
-    avatarLetter: {
-      fontSize: 17,
-      fontWeight: '700',
-      color: colors.primary,
-    },
+    avatarText: { fontSize: 18, fontWeight: '700', color: colors.primary },
 
-    // flex:1 = take the leftover width. minWidth:0 = and you are allowed to
-    // become narrower than your text, which is what lets numberOfLines
-    // truncate a long email instead of overflowing the card.
-    identity: {
-      flex: 1,
-      minWidth: 0,
-      gap: 2,
-    },
-    name: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    email: {
-      fontSize: 12,
-      color: colors.textMuted,
-    },
+    cardText: { flex: 1, minWidth: 0 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    name: { fontSize: 14, fontWeight: '700', color: colors.text, flexShrink: 1 },
+    youLabel: { fontSize: 11, color: colors.textMuted, flexShrink: 0 },
+    email: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
 
-    // The role pill on the right.
-    rolePill: {
+    roleBadge: {
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: radius.pill,
-      flexShrink: 0,         // this label must stay readable at any width
+      backgroundColor: colors.chipIdle,
+      flexShrink: 0,
     },
-    rolePillAdmin: { backgroundColor: colors.primary },
-    rolePillUser: { backgroundColor: colors.chipIdle },
-    roleText: { fontSize: 11, fontWeight: '700' },
-    // White on the solid blue pill; muted grey on the idle one.
+    roleBadgeAdmin: { backgroundColor: colors.primary },
+    roleText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
     roleTextAdmin: { color: '#fff' },
-    roleTextUser: { color: colors.textSecondary },
 
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.md,
     },
-    // The role button takes all the width the delete circle does not need.
-    actionButton: { flex: 1, minWidth: 0 },
 
-    selfLabel: {
-      fontSize: 12,
-      color: colors.textMuted,
-      fontStyle: 'italic',
+    hintRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 6,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.surface,
     },
+    hintText: { flex: 1, fontSize: 11, color: colors.textMuted },
   });

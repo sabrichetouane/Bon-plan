@@ -49,6 +49,12 @@ import * as planRepo from '../../db/planRepo';
 import * as commentRepo from '../../db/commentRepo';
 import * as userRepo from '../../db/userRepo';
 
+// useRTL() reports which way the chosen language reads, and hands back small
+// style objects that mirror a layout. Arabic is read right to left, so a row of
+// icon-then-label has to become label-then-icon. Every helper it returns is
+// null in English and French, so using them costs those languages nothing.
+import { useRTL } from '../../theme/rtl';
+
 // Every counter starts at 0 rather than undefined. If the very first render
 // happens before the database has answered, `0` still renders fine, whereas
 // `undefined` would print nothing and make the cards look broken.
@@ -66,6 +72,10 @@ export default function AdminDashboardScreen({ navigation }) {
   // The current palette (light or dark). It changes when the user flips the
   // theme in Profile, and this component re-renders automatically.
   const { colors } = useTheme();
+
+  // The mirroring helpers for this screen. In a left-to-right language every
+  // value below (rtl.row, rtl.text, ...) is null, so nothing moves.
+  const rtl = useRTL();
 
   // makeStyles() lives at the bottom of the file and needs `colors`, so the
   // stylesheet has to be built inside the component. useMemo caches the result
@@ -268,13 +278,15 @@ export default function AdminDashboardScreen({ navigation }) {
           no <ScreenHeader>. We draw a plain title row instead. It sits OUTSIDE
           the ScrollView so it stays put while the content scrolls. */}
       <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1}>
+        {/* rtl.text right-aligns the words in Arabic and does nothing at all
+            in English, so the title never moves for an English user. */}
+        <Text style={[styles.title, rtl.text]} numberOfLines={1}>
           {t('admin.title')}
         </Text>
 
         {/* `?.` is optional chaining: if `user` is null this reads as undefined
             instead of crashing. `||` then falls back to the next option. */}
-        <Text style={styles.subtitle} numberOfLines={1}>
+        <Text style={[styles.subtitle, rtl.text]} numberOfLines={1}>
           {user?.name || user?.email || ''}
         </Text>
       </View>
@@ -320,15 +332,18 @@ export default function AdminDashboardScreen({ navigation }) {
                       live in the StyleSheet. Appending '22' to a hex colour is
                       its alpha channel (~13% opacity): a soft tint made from
                       the very same colour as the icon, so it always matches. */}
-                  <View style={[styles.statIcon, { backgroundColor: card.color + '22' }]}>
+                  {/* rtl.alignStart moves this circle to the right-hand edge in
+                      Arabic. The card is a COLUMN, so it mirrors with alignSelf
+                      instead of with rtl.row. */}
+                  <View style={[styles.statIcon, { backgroundColor: card.color + '22' }, rtl.alignStart]}>
                     <Ionicons name={card.icon} size={20} color={card.color} />
                   </View>
 
-                  <Text style={styles.statNumber}>{card.value}</Text>
+                  <Text style={[styles.statNumber, rtl.text]}>{card.value}</Text>
 
                   {/* Up to 2 lines: translated labels run longer in French,
                       and cutting one to a single line would hide its meaning. */}
-                  <Text style={styles.statLabel} numberOfLines={2}>
+                  <Text style={[styles.statLabel, rtl.text]} numberOfLines={2}>
                     {card.label}
                   </Text>
                 </View>
@@ -347,7 +362,10 @@ export default function AdminDashboardScreen({ navigation }) {
                   // The last row is the one whose index is length - 1. `&&` in
                   // a style array means "add this style only if the test
                   // passed"; a false value is simply ignored by the merger.
-                  style={[styles.row, index < navRows.length - 1 && styles.rowBorder]}
+                  // rtl.row is the last entry so it wins: in Arabic the row is
+                  // laid out from the right, putting the icon on the right and
+                  // the chevron on the left. In English it is null.
+                  style={[styles.row, index < navRows.length - 1 && styles.rowBorder, rtl.row]}
                   onPress={() => navigation.navigate(row.route)}
                   // Tells VoiceOver / TalkBack that this is a button and reads
                   // the label out loud. One line, and the app works blind.
@@ -360,7 +378,7 @@ export default function AdminDashboardScreen({ navigation }) {
                       minWidth:0 lets it SHRINK below its natural size - without
                       that, a long word would push the badge and the chevron
                       off the right edge of the screen. */}
-                  <Text style={styles.rowLabel} numberOfLines={1}>
+                  <Text style={[styles.rowLabel, rtl.text]} numberOfLines={1}>
                     {row.label}
                   </Text>
 
@@ -372,7 +390,10 @@ export default function AdminDashboardScreen({ navigation }) {
                     <Text style={styles.rowCount}>{row.total}</Text>
                   )}
 
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  {/* A "go deeper" chevron must point the way the language
+                      reads, so rtl.forwardIcon becomes 'chevron-back' in
+                      Arabic and stays 'chevron-forward' in English. */}
+                  <Ionicons name={rtl.forwardIcon} size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               ))}
             </View>

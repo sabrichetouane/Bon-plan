@@ -32,6 +32,9 @@ import {
   Platform,
 } from 'react-native';
 import { useTheme, radius, spacing } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import Screen from './Screen';
 import IconButton from './IconButton';
 
@@ -45,6 +48,7 @@ import IconButton from './IconButton';
 // ---------------------------------------------------------------------------
 export default function AuthLayout({ title, subtitle, onBack, children, footer }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
@@ -65,8 +69,8 @@ export default function AuthLayout({ title, subtitle, onBack, children, footer }
         >
           {/* The back arrow, only on screens that were pushed onto another. */}
           {onBack ? (
-            <View style={styles.backRow}>
-              <IconButton name="chevron-back" size={22} onPress={onBack} />
+            <View style={[styles.backRow, rtl.alignStart]}>
+              <IconButton name={rtl.backIcon} size={22} onPress={onBack} />
             </View>
           ) : (
             <View style={styles.backSpacer} />
@@ -86,8 +90,8 @@ export default function AuthLayout({ title, subtitle, onBack, children, footer }
           </View>
 
           {/* Heading + explanation. */}
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text style={[styles.title, rtl.text]}>{title}</Text>
+          {subtitle ? <Text style={[styles.subtitle, rtl.text]}>{subtitle}</Text> : null}
 
           {/* The screen's own fields and buttons drop in here. */}
           <View style={styles.form}>{children}</View>
@@ -111,7 +115,8 @@ const makeStyles = (colors) =>
       paddingHorizontal: spacing.xl,
       paddingBottom: spacing.xxl,
     },
-    backRow: { marginLeft: -spacing.sm, marginTop: spacing.xs },
+    // alignStart puts it on the leading edge - left in English, right in Arabic.
+    backRow: { marginTop: spacing.xs },
     backSpacer: { height: spacing.xl },
 
     brand: { alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.xl },

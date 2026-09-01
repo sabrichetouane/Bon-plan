@@ -17,6 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, radius, spacing } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import * as planRepo from '../db/planRepo';
 
@@ -29,6 +32,7 @@ import { Loading, EmptyState, StatusBadge } from '../components/Feedback';
 
 export default function MyPlansScreen({ navigation }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();
   const { userId, isAdmin, isLoggedIn, openPlan, language } = useStore();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -190,7 +194,7 @@ export default function MyPlansScreen({ navigation }) {
             <View style={styles.card}>
               {/* Tapping the top part opens the plan. */}
               <TouchableOpacity
-                style={styles.cardHead}
+                style={[styles.cardHead, rtl.row]}
                 onPress={() => handleOpen(item)}
                 activeOpacity={0.85}
               >
@@ -201,10 +205,10 @@ export default function MyPlansScreen({ navigation }) {
                 {/* flex:1 + minWidth:0 so a long plan name shrinks rather than
                     pushing the delete button off the right edge. */}
                 <View style={styles.cardText}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
+                  <Text style={[styles.cardTitle, rtl.text]} numberOfLines={1}>
                     {item.title}
                   </Text>
-                  <Text style={styles.cardMeta} numberOfLines={1}>
+                  <Text style={[styles.cardMeta, rtl.text]} numberOfLines={1}>
                     {formatDate(item.dayDate)} · {item.itemCount} {t('plan.activities')}
                   </Text>
                 </View>
@@ -221,9 +225,9 @@ export default function MyPlansScreen({ navigation }) {
               </TouchableOpacity>
 
               {/* The share row: a switch, plus a badge showing the review state. */}
-              <View style={styles.shareRow}>
+              <View style={[styles.shareRow, rtl.row]}>
                 <View style={styles.shareText}>
-                  <Text style={styles.shareLabel} numberOfLines={1}>
+                  <Text style={[styles.shareLabel, rtl.text]} numberOfLines={1}>
                     {t('plan.share')}
                   </Text>
                   {/* Only show the moderation badge when the plan is actually
@@ -231,7 +235,7 @@ export default function MyPlansScreen({ navigation }) {
                   {item.isPublic === 1 ? (
                     <StatusBadge status={item.status} t={t} style={styles.badge} />
                   ) : (
-                    <Text style={styles.privateLabel}>{t('plan.private')}</Text>
+                    <Text style={[styles.privateLabel, rtl.text]}>{t('plan.private')}</Text>
                   )}
                 </View>
 

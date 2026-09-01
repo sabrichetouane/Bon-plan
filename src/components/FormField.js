@@ -17,6 +17,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, radius, spacing, hitSlopFor } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 
 // ---------------------------------------------------------------------------
 // Props:
@@ -46,6 +47,7 @@ export default function FormField({
   ...rest
 }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // Tracks whether the password is currently visible. Starts hidden.
@@ -58,7 +60,7 @@ export default function FormField({
   return (
     <View style={[styles.wrap, style]}>
       {/* The label above the box. */}
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, rtl.text]}>{label}</Text> : null}
 
       {/* The box itself. Its border turns red when `error` has a value. */}
       <View
@@ -66,12 +68,13 @@ export default function FormField({
           styles.box,
           multiline && styles.boxMultiline,
           error && styles.boxError,
+          rtl.row,
         ]}
       >
         {icon ? <Ionicons name={icon} size={18} color={colors.textMuted} /> : null}
 
         <TextInput
-          style={[styles.input, multiline && styles.inputMultiline]}
+          style={[styles.input, multiline && styles.inputMultiline, rtl.text]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -108,12 +111,12 @@ export default function FormField({
 
       {/* Error wins over hint - never show both, it is noise. */}
       {error ? (
-        <View style={styles.errorRow}>
+        <View style={[styles.errorRow, rtl.row]}>
           <Ionicons name="alert-circle" size={13} color={colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, rtl.text]}>{error}</Text>
         </View>
       ) : hint ? (
-        <Text style={styles.hint}>{hint}</Text>
+        <Text style={[styles.hint, rtl.text]}>{hint}</Text>
       ) : null}
     </View>
   );

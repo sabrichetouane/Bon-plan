@@ -19,6 +19,9 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { useTheme, spacing } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useT } from '../store';
 import Screen from '../components/Screen';
 import { PrimaryButton, PressableText } from '../components/Buttons';
@@ -80,6 +83,7 @@ function Illustration({ s, colors, styles }) {
 
 export default function Onboarding2({ navigation }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -90,7 +94,7 @@ export default function Onboarding2({ navigation }) {
   return (
     <Screen edges={['top', 'left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.skipRow}>
+        <View style={[styles.skipRow, rtl.isRTL ? { alignItems: 'flex-start' } : { alignItems: 'flex-end' }]}>
           <PressableText
             title={t('common.skip')}
             tone="muted"
@@ -103,8 +107,8 @@ export default function Onboarding2({ navigation }) {
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.title}>{t('onboarding.title2')}</Text>
-          <Text style={styles.subtitle}>{t('onboarding.body2')}</Text>
+          <Text style={[styles.title, rtl.textCenter]}>{t('onboarding.title2')}</Text>
+          <Text style={[styles.subtitle, rtl.textCenter]}>{t('onboarding.body2')}</Text>
 
           {/* The SECOND dot is the active one on this page. */}
           <View style={styles.dotsRow}>
@@ -123,10 +127,11 @@ const makeStyles = (colors) =>
   StyleSheet.create({
     scroll: { flexGrow: 1, paddingBottom: spacing.xl },
 
+    // alignItems is set in the JSX instead, because the Skip link belongs on
+    // the trailing edge - the right in English, the LEFT in Arabic.
     skipRow: {
       paddingHorizontal: spacing.xl,
       paddingTop: spacing.sm,
-      alignItems: 'flex-end',
     },
 
     illustrationWrap: {
@@ -173,6 +178,8 @@ const makeStyles = (colors) =>
       paddingHorizontal: spacing.sm,
     },
 
+    // The progress dots read left-to-right in every language: they show
+    // position in a sequence, not text, so they are deliberately not mirrored.
     dotsRow: { flexDirection: 'row', marginBottom: spacing.xl, gap: 8 },
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
     dotActive: { width: 22, backgroundColor: colors.primary },

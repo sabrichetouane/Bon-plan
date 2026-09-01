@@ -18,6 +18,9 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, radius } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useT } from '../store';
 import { findUserByEmail, isValidEmail } from '../db/userRepo';
 
@@ -27,6 +30,7 @@ import { PrimaryButton } from '../components/Buttons';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
@@ -93,9 +97,9 @@ export default function ForgotPasswordScreen({ navigation }) {
 
       {/* An honest note, in the UI, about what this flow does and does not do.
           Being upfront here is better than implying an email was sent. */}
-      <View style={styles.note}>
+      <View style={[styles.note, rtl.row]}>
         <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
-        <Text style={styles.noteText}>
+        <Text style={[styles.noteText, rtl.text]}>
           This demo runs entirely on your phone, so no email is sent — you set the new
           password here directly.
         </Text>

@@ -19,6 +19,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, radius, spacing } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import { resolveImage } from '../data/assetRegistry';
 import * as placeRepo from '../db/placeRepo';
@@ -30,6 +33,7 @@ import { Loading, EmptyState, StatusBadge } from '../components/Feedback';
 
 export default function MyPlacesScreen({ navigation }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();
   const { userId, isLoggedIn } = useStore();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -123,7 +127,7 @@ export default function MyPlacesScreen({ navigation }) {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <TouchableOpacity
-                style={styles.cardBody}
+                style={[styles.cardBody, rtl.row]}
                 activeOpacity={0.85}
                 onPress={() => navigation.navigate('PlaceDetail', { placeId: item.id })}
               >
@@ -132,15 +136,15 @@ export default function MyPlacesScreen({ navigation }) {
                 {/* flex:1 + minWidth:0 lets these lines shrink instead of
                     pushing the delete button off the right edge. */}
                 <View style={styles.text}>
-                  <Text style={styles.name} numberOfLines={1}>
+                  <Text style={[styles.name, rtl.text]} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  <Text style={styles.meta} numberOfLines={1}>
+                  <Text style={[styles.meta, rtl.text]} numberOfLines={1}>
                     {t('cat.' + item.categoryId)}
                     {item.location ? ` · ${item.location}` : ''}
                   </Text>
 
-                  <View style={styles.badgeRow}>
+                  <View style={[styles.badgeRow, rtl.row]}>
                     <StatusBadge status={item.status} t={t} />
                   </View>
                 </View>
@@ -157,7 +161,7 @@ export default function MyPlacesScreen({ navigation }) {
               </TouchableOpacity>
 
               {/* The plain-language explanation of what the badge means. */}
-              <View style={styles.hintRow}>
+              <View style={[styles.hintRow, rtl.row]}>
                 <Ionicons
                   name={
                     item.status === 'pending'
@@ -169,7 +173,7 @@ export default function MyPlacesScreen({ navigation }) {
                   size={13}
                   color={colors.textMuted}
                 />
-                <Text style={styles.hintText} numberOfLines={2}>
+                <Text style={[styles.hintText, rtl.text]} numberOfLines={2}>
                   {statusHint(item.status)}
                 </Text>
               </View>

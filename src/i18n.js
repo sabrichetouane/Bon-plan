@@ -250,6 +250,9 @@ const dict = {
   'error.textTooShort':     { en: 'Please write a little more.', fr: 'Veuillez écrire un peu plus.', ar: 'يرجى كتابة المزيد.' },
   'error.ratingInvalid':    { en: 'Please choose a rating.', fr: 'Veuillez choisir une note.', ar: 'يرجى اختيار تقييم.' },
   'error.lastAdmin':        { en: 'You cannot remove the last admin.', fr: 'Impossible de retirer le dernier administrateur.', ar: 'لا يمكن إزالة آخر مشرف.' },
+  'error.userNotFound':     { en: 'That account no longer exists.', fr: 'Ce compte n’existe plus.', ar: 'هذا الحساب لم يعد موجوداً.' },
+  'error.badRole':          { en: 'Unknown role.', fr: 'Rôle inconnu.', ar: 'دور غير معروف.' },
+  'error.saveFailed':       { en: 'Could not save. Please try again.', fr: 'Enregistrement impossible. Réessayez.', ar: 'تعذّر الحفظ. حاول مرة أخرى.' },
   'error.alreadyAdded':     { en: 'Already in your plan.', fr: 'Déjà dans votre plan.', ar: 'موجود بالفعل في خطتك.' },
   'error.notAllowed':       { en: 'You are not allowed to do that.', fr: 'Vous n’êtes pas autorisé à faire cela.', ar: 'غير مسموح لك بذلك.' },
 
@@ -377,6 +380,24 @@ const dict = {
   'admin.removeAdmin':  { en: 'Remove admin', fr: 'Retirer l’administrateur', ar: 'إزالة الإشراف' },
   'admin.roleUser':     { en: 'User',         fr: 'Utilisateur',  ar: 'مستخدم' },
   'admin.roleAdmin':    { en: 'Admin',        fr: 'Administrateur', ar: 'مشرف' },
+  'admin.role':         { en: 'Role',         fr: 'Rôle',         ar: 'الدور' },
+  'admin.newUser':      { en: 'New account',  fr: 'Nouveau compte', ar: 'حساب جديد' },
+  'admin.createUser':   { en: 'Create account', fr: 'Créer le compte', ar: 'إنشاء الحساب' },
+  'admin.demoteSelfMsg': {
+    en: 'You will stop being an admin and lose access to this panel. Continue?',
+    fr: 'Vous ne serez plus administrateur et perdrez l’accès à ce panneau. Continuer ?',
+    ar: 'لن تعود مشرفاً وستفقد الوصول إلى هذه اللوحة. هل تريد المتابعة؟',
+  },
+  'admin.selfHint': {
+    en: 'This is your account. You cannot delete it, but you can remove your own admin role.',
+    fr: 'Ceci est votre compte. Vous ne pouvez pas le supprimer, mais vous pouvez retirer votre rôle d’administrateur.',
+    ar: 'هذا حسابك. لا يمكنك حذفه، لكن يمكنك إزالة دور المشرف عن نفسك.',
+  },
+  'admin.selfLastAdminHint': {
+    en: 'This is your account, and you are the only admin — create another admin first.',
+    fr: 'Ceci est votre compte et vous êtes le seul administrateur — créez d’abord un autre administrateur.',
+    ar: 'هذا حسابك وأنت المشرف الوحيد — أنشئ مشرفاً آخر أولاً.',
+  },
   'admin.by':           { en: 'by',           fr: 'par',          ar: 'بواسطة' },
   'admin.openPanel':    { en: 'Admin panel',  fr: 'Panneau admin', ar: 'لوحة المشرف' },
 

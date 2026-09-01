@@ -23,6 +23,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, radius, spacing } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import { listAssetKeys, resolveImage } from '../data/assetRegistry';
 import * as placeRepo from '../db/placeRepo';
@@ -45,6 +48,7 @@ const PRICE_LEVELS = [
 
 export default function AddPlaceScreen({ navigation }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();
   const { userId, isAdmin, isLoggedIn } = useStore();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -141,7 +145,7 @@ export default function AddPlaceScreen({ navigation }) {
         <ScreenHeader title={t('place.addTitle')} onBack={() => navigation.goBack()} />
         <View style={styles.guest}>
           <Ionicons name="lock-closed-outline" size={40} color={colors.textMuted} />
-          <Text style={styles.guestText}>{t('auth.loginRequiredMsg')}</Text>
+          <Text style={[styles.guestText, rtl.textCenter]}>{t('auth.loginRequiredMsg')}</Text>
           <PrimaryButton title={t('auth.logIn')} onPress={() => navigation.navigate('Login')} />
         </View>
       </Screen>
@@ -176,8 +180,8 @@ export default function AddPlaceScreen({ navigation }) {
 
           {/* CATEGORY - chips instead of a dropdown, because React Native has
               no built-in picker that looks the same on both platforms. */}
-          <Text style={styles.label}>{t('place.category')}</Text>
-          <View style={styles.chipsRow}>
+          <Text style={[styles.label, rtl.text]}>{t('place.category')}</Text>
+          <View style={[styles.chipsRow, rtl.row]}>
             {categories.map((cat) => (
               <Chip
                 key={cat.id}
@@ -188,7 +192,7 @@ export default function AddPlaceScreen({ navigation }) {
               />
             ))}
           </View>
-          {errors.category ? <Text style={styles.error}>{t(errors.category)}</Text> : null}
+          {errors.category ? <Text style={[styles.error, rtl.text]}>{t(errors.category)}</Text> : null}
 
           <FormField
             label={t('place.subtitle')}
@@ -237,8 +241,8 @@ export default function AddPlaceScreen({ navigation }) {
           />
 
           {/* PRICE LEVEL */}
-          <Text style={styles.label}>{t('place.price')}</Text>
-          <View style={styles.chipsRow}>
+          <Text style={[styles.label, rtl.text]}>{t('place.price')}</Text>
+          <View style={[styles.chipsRow, rtl.row]}>
             {PRICE_LEVELS.map((level) => (
               <Chip
                 key={level.tier}
@@ -250,8 +254,8 @@ export default function AddPlaceScreen({ navigation }) {
           </View>
 
           {/* PHOTO PICKER - a horizontal strip of the bundled photos. */}
-          <Text style={[styles.label, styles.spaced]}>{t('place.photo')}</Text>
-          <Text style={styles.hint}>{t('place.choosePhoto')}</Text>
+          <Text style={[styles.label, styles.spaced, rtl.text]}>{t('place.photo')}</Text>
+          <Text style={[styles.hint, rtl.text]}>{t('place.choosePhoto')}</Text>
 
           <ScrollView
             horizontal
@@ -281,9 +285,9 @@ export default function AddPlaceScreen({ navigation }) {
           </ScrollView>
 
           {/* A plain explanation of what happens after Submit. */}
-          <View style={styles.note}>
+          <View style={[styles.note, rtl.row]}>
             <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
-            <Text style={styles.noteText}>
+            <Text style={[styles.noteText, rtl.text]}>
               {isAdmin ? t('place.publishedMsg') : t('place.submittedMsg')}
             </Text>
           </View>

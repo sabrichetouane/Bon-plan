@@ -39,6 +39,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, radius, spacing } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import { resolveImage } from '../data/assetRegistry';
 import * as placeRepo from '../db/placeRepo';
@@ -52,6 +53,9 @@ import { Loading, EmptyState, StatusBadge } from '../components/Feedback';
 
 export default function PlaceDetailScreen({ navigation, route }) {
   const { colors } = useTheme();
+  // useRTL hands back mirrored styles when the language is Arabic, and empty
+  // ones for English and French - so adding rtl.* below changes nothing in EN/FR.
+  const rtl = useRTL();
   const t = useT();
   const {
     userId,
@@ -311,10 +315,13 @@ export default function PlaceDetailScreen({ navigation, route }) {
 
           {/* The floating buttons. `insetTop` pushes them below the status bar,
               which the old code did not do - on Android they sat 12pt from the
-              physical top edge, right under the clock. */}
-          <View style={styles.heroTopRow}>
+              physical top edge, right under the clock.
+              rtl.row mirrors this row in Arabic so Back stays on the edge the
+              reader starts from, and rtl.backIcon makes the chevron point that
+              way too. Both do nothing in English. */}
+          <View style={[styles.heroTopRow, rtl.row]}>
             <IconButton
-              name="chevron-back"
+              name={rtl.backIcon}
               size={22}
               color="#fff"
               diameter={40}
@@ -349,16 +356,18 @@ export default function PlaceDetailScreen({ navigation, route }) {
             <StatusBadge status={place.status} t={t} style={styles.statusBadge} />
           )}
 
-          <View style={styles.titleRow}>
+          <View style={[styles.titleRow, rtl.row]}>
             <View style={styles.titleText}>
-              <Text style={styles.name}>{place.name}</Text>
-              <View style={styles.metaRow}>
+              <Text style={[styles.name, rtl.text]}>{place.name}</Text>
+              <View style={[styles.metaRow, rtl.row]}>
                 <Ionicons name="location-outline" size={13} color={colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={2}>
+                <Text style={[styles.metaText, rtl.text]} numberOfLines={2}>
                   {place.location}
                 </Text>
               </View>
             </View>
+            {/* The price bubble is deliberately left alone - a price like "$$"
+                is read the same way in every language. */}
             {place.price ? (
               <View style={styles.priceBubble}>
                 <Text style={styles.priceText}>{place.price}</Text>
@@ -366,39 +375,45 @@ export default function PlaceDetailScreen({ navigation, route }) {
             ) : null}
           </View>
 
+          {/* rtl.row puts the wallet icon on the right in Arabic. The digits
+              inside "15-35 TND" always keep their normal left-to-right order. */}
           {place.priceRange ? (
-            <View style={styles.rangeRow}>
+            <View style={[styles.rangeRow, rtl.row]}>
               <Ionicons name="wallet-outline" size={14} color={colors.primary} />
-              <Text style={styles.rangeText} numberOfLines={2}>
+              <Text style={[styles.rangeText, rtl.text]} numberOfLines={2}>
                 {place.priceRange}
               </Text>
             </View>
           ) : null}
 
-          {/* THREE STATS */}
-          <View style={styles.statsRow}>
+          {/* THREE STATS - rtl.row reverses their order in Arabic so the first
+              stat sits on the right, where reading starts. */}
+          <View style={[styles.statsRow, rtl.row]}>
             <View style={styles.stat}>
               <Ionicons name="star" size={14} color={colors.star} />
               <Text style={styles.statText}>{place.rating || '—'}</Text>
-              <Text style={styles.statSub}>{t('detail.rating')}</Text>
+              <Text style={[styles.statSub, rtl.textCenter]}>{t('detail.rating')}</Text>
             </View>
             <View style={styles.stat}>
               <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
               <Text style={styles.statText}>{place.reviews}</Text>
-              <Text style={styles.statSub}>{t('list.reviews')}</Text>
+              <Text style={[styles.statSub, rtl.textCenter]}>{t('list.reviews')}</Text>
             </View>
             <View style={styles.stat}>
               <Ionicons name="time-outline" size={14} color={colors.success} />
               <Text style={styles.statText}>{t('detail.open')}</Text>
-              <Text style={styles.statSub}>{t('detail.now')}</Text>
+              <Text style={[styles.statSub, rtl.textCenter]}>{t('detail.now')}</Text>
             </View>
           </View>
 
-          {/* CONTACT - only rendered when there is something to contact. */}
+          {/* CONTACT - only rendered when there is something to contact.
+              rtl.row lays the buttons out from the right in Arabic, but each
+              button keeps rtl.rowFixed: a phone number and a web address are
+              read left to right in every language, icon first. */}
           {(place.phone || place.website) && (
-            <View style={styles.contactRow}>
+            <View style={[styles.contactRow, rtl.row]}>
               {place.phone ? (
-                <TouchableOpacity style={styles.contactBtn} onPress={callPhone}>
+                <TouchableOpacity style={[styles.contactBtn, rtl.rowFixed]} onPress={callPhone}>
                   <Ionicons name="call-outline" size={16} color={colors.primary} />
                   <Text style={styles.contactText} numberOfLines={1}>
                     {place.phone}
@@ -406,7 +421,7 @@ export default function PlaceDetailScreen({ navigation, route }) {
                 </TouchableOpacity>
               ) : null}
               {place.website ? (
-                <TouchableOpacity style={styles.contactBtn} onPress={openWebsite}>
+                <TouchableOpacity style={[styles.contactBtn, rtl.rowFixed]} onPress={openWebsite}>
                   <Ionicons name="globe-outline" size={16} color={colors.primary} />
                   <Text style={styles.contactText} numberOfLines={1}>
                     {place.website}
@@ -419,13 +434,15 @@ export default function PlaceDetailScreen({ navigation, route }) {
           {/* ABOUT */}
           {place.description ? (
             <>
-              <Text style={styles.heading}>{t('detail.about')}</Text>
-              <Text style={styles.description}>{place.description}</Text>
+              <Text style={[styles.heading, rtl.text]}>{t('detail.about')}</Text>
+              {/* rtl.text right-aligns the paragraph and tells the renderer the
+                  sentence runs right to left, so the full stop lands correctly. */}
+              <Text style={[styles.description, rtl.text]}>{place.description}</Text>
             </>
           ) : null}
 
           {/* GALLERY */}
-          <Text style={styles.heading}>{t('detail.gallery')}</Text>
+          <Text style={[styles.heading, rtl.text]}>{t('detail.gallery')}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -439,8 +456,8 @@ export default function PlaceDetailScreen({ navigation, route }) {
           </ScrollView>
 
           {/* ---------- REVIEWS ---------- */}
-          <View style={styles.reviewsHeader}>
-            <Text style={styles.heading}>{t('detail.reviews')}</Text>
+          <View style={[styles.reviewsHeader, rtl.row]}>
+            <Text style={[styles.heading, rtl.text]}>{t('detail.reviews')}</Text>
             {isLoggedIn ? (
               <PressableText
                 title={myComment ? t('comment.edit') : t('comment.write')}
@@ -454,11 +471,13 @@ export default function PlaceDetailScreen({ navigation, route }) {
           {/* THE REVIEW FORM - shown only when the user asked for it. */}
           {showForm && isLoggedIn && (
             <View style={styles.reviewForm}>
-              <Text style={styles.formLabel}>{t('comment.yourRating')}</Text>
+              <Text style={[styles.formLabel, rtl.text]}>{t('comment.yourRating')}</Text>
 
               {/* Five tappable stars. [...Array(5)] makes an array of 5 empty
-                  slots purely so we can .map over it and draw five icons. */}
-              <View style={styles.starPicker}>
+                  slots purely so we can .map over it and draw five icons.
+                  rtl.row makes them fill from the right in Arabic; the star
+                  icon itself is not directional, so its name never changes. */}
+              <View style={[styles.starPicker, rtl.row]}>
                 {[...Array(5)].map((_, index) => {
                   const starValue = index + 1;   // 1..5, because index starts at 0
                   return (
@@ -519,7 +538,8 @@ export default function PlaceDetailScreen({ navigation, route }) {
               const isMine = comment.userId === userId;
               return (
                 <View key={comment.id} style={styles.reviewCard}>
-                  <View style={styles.reviewHead}>
+                  {/* Avatar, name and stars all mirror together in Arabic. */}
+                  <View style={[styles.reviewHead, rtl.row]}>
                     <View style={styles.avatar}>
                       <Text style={styles.avatarText}>
                         {/* The author's first letter, as a simple avatar. */}
@@ -528,17 +548,17 @@ export default function PlaceDetailScreen({ navigation, route }) {
                     </View>
 
                     <View style={styles.reviewWho}>
-                      <Text style={styles.reviewName} numberOfLines={1}>
+                      <Text style={[styles.reviewName, rtl.text]} numberOfLines={1}>
                         {isMine ? t('comment.you') : comment.authorName}
                       </Text>
-                      <Text style={styles.reviewDate}>
+                      <Text style={[styles.reviewDate, rtl.text]}>
                         {/* .slice(0, 10) cuts '2026-09-01T14:32:05.123Z' down
                             to just '2026-09-01'. */}
                         {comment.createdAt?.slice(0, 10)}
                       </Text>
                     </View>
 
-                    <View style={styles.reviewStars}>
+                    <View style={[styles.reviewStars, rtl.row]}>
                       {[...Array(5)].map((_, i) => (
                         <Ionicons
                           key={i}
@@ -550,16 +570,18 @@ export default function PlaceDetailScreen({ navigation, route }) {
                     </View>
                   </View>
 
-                  <Text style={styles.reviewText}>{comment.text}</Text>
+                  <Text style={[styles.reviewText, rtl.text]}>{comment.text}</Text>
 
                   {/* The delete button appears only for your own review, or
-                      for an admin. The database checks this again anyway. */}
+                      for an admin. The database checks this again anyway.
+                      rtl.alignStart keeps it on the side the language starts
+                      from - left in English, right in Arabic. */}
                   {(isMine || isAdmin) && (
                     <PressableText
                       title={t('common.delete')}
                       tone="danger"
                       onPress={() => handleDeleteComment(comment)}
-                      style={styles.deleteReview}
+                      style={[styles.deleteReview, rtl.alignStart]}
                     />
                   )}
                 </View>
@@ -569,8 +591,10 @@ export default function PlaceDetailScreen({ navigation, route }) {
         </View>
       </ScrollView>
 
-      {/* ---------- FIXED FOOTER ---------- */}
-      <View style={styles.footer}>
+      {/* ---------- FIXED FOOTER ----------
+          Only the container mirrors: the two buttons swap sides in Arabic, and
+          each button already handles its own contents. */}
+      <View style={[styles.footer, rtl.row]}>
         <SecondaryButton
           title={t('detail.directions')}
           icon="map-outline"

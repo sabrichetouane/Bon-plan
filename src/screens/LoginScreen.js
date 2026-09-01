@@ -16,6 +16,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme, spacing, radius } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 
 import AuthLayout from '../components/AuthLayout';
@@ -24,6 +27,7 @@ import { PrimaryButton, PressableText } from '../components/Buttons';
 
 export default function LoginScreen({ navigation }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();                      // translator: t('auth.logIn') etc.
   const { logIn } = useStore();          // the login function from the store
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
@@ -79,8 +83,8 @@ export default function LoginScreen({ navigation }) {
       footer={
         // The bottom links: create an account, or look around without one.
         <View style={styles.footerBlock}>
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>{t('auth.noAccount')}</Text>
+          <View style={[styles.footerRow, rtl.row]}>
+            <Text style={[styles.footerText, rtl.text]}>{t('auth.noAccount')}</Text>
             <PressableText title={t('auth.signUp')} onPress={() => navigation.navigate('Signup')} />
           </View>
 
@@ -94,7 +98,7 @@ export default function LoginScreen({ navigation }) {
           {/* A visible reminder of the demo admin account. This exists because
               the app ships with no users other than the seeded admin; a real
               product would never print credentials on screen. */}
-          <Text style={styles.demoHint}>{t('auth.demoHint')}</Text>
+          <Text style={[styles.demoHint, rtl.textCenter]}>{t('auth.demoHint')}</Text>
         </View>
       }
     >
@@ -122,12 +126,12 @@ export default function LoginScreen({ navigation }) {
       {/* The error message, shown only when there is one. */}
       {error ? (
         <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{t(error)}</Text>
+          <Text style={[styles.errorText, rtl.text]}>{t(error)}</Text>
         </View>
       ) : null}
 
       {/* Right-aligned "Forgot password?" link. */}
-      <View style={styles.forgotRow}>
+      <View style={[styles.forgotRow, rtl.isRTL ? { alignItems: 'flex-start' } : { alignItems: 'flex-end' }]}>
         <PressableText
           title={t('auth.forgotPassword')}
           onPress={() => navigation.navigate('ForgotPassword')}
@@ -156,7 +160,9 @@ const makeStyles = (colors) =>
     },
     errorText: { color: colors.danger, fontSize: 13 },
 
-    forgotRow: { alignItems: 'flex-end', marginBottom: spacing.lg },
+    // In Arabic the 'forgot password?' link belongs on the LEFT, which is the
+    // trailing edge there - so the alignment flips with the language.
+    forgotRow: { marginBottom: spacing.lg },
 
     footerBlock: { alignItems: 'center', gap: spacing.sm },
     footerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

@@ -16,6 +16,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme, spacing, radius } from '../theme/colors';
+// useRTL mirrors the layout when the language is Arabic. Every value it
+// returns is null in English and French, so using it costs nothing there.
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import { isValidEmail } from '../db/userRepo';
 
@@ -25,6 +28,7 @@ import { PrimaryButton, PressableText } from '../components/Buttons';
 
 export default function SignupScreen({ navigation }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const t = useT();
   const { signUp } = useStore();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
@@ -99,8 +103,8 @@ export default function SignupScreen({ navigation }) {
       subtitle={t('auth.signupSubtitle')}
       onBack={() => navigation.goBack()}
       footer={
-        <View style={styles.footerRow}>
-          <Text style={styles.footerText}>{t('auth.haveAccount')}</Text>
+        <View style={[styles.footerRow, rtl.row]}>
+          <Text style={[styles.footerText, rtl.text]}>{t('auth.haveAccount')}</Text>
           <PressableText title={t('auth.logIn')} onPress={() => navigation.goBack()} />
         </View>
       }

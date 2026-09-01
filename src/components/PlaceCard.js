@@ -8,19 +8,25 @@
 //   'grid'      square-ish card for the 2-column Category list
 //   'row'       wide horizontal card for the Home screen's "Nearby" list
 //
-// RESPONSIVE FIXES BUILT IN:
-//  - the carousel card's width is a fraction of the screen, not a hard 170pt,
-//    so it does not become a postage stamp on a tablet
-//  - images use aspectRatio instead of a fixed height, so they keep their
-//    shape at any width
-//  - every text has numberOfLines and can shrink, so long French and Arabic
-//    names do not push the price off the edge
+// THE SIZES HERE ARE THE ORIGINAL DESIGN, ON PURPOSE:
+//   carousel  170 wide, 110 tall image
+//   grid      half the row, 130 tall image
+//   row       78x78 thumbnail
+// An earlier version made the carousel card scale with the screen width. It
+// grew to 240 wide on a big phone, which made the photo 155 tall and threw the
+// card out of proportion. Fixed sizes are the right call here: the carousel
+// scrolls sideways, so the card does not need to fill the screen.
+//
+// What IS kept from the responsive pass is the part you cannot see: every text
+// has numberOfLines and is allowed to shrink, so long French and Arabic names
+// no longer push the price off the edge of the card.
 // ============================================================================
 
 import React, { useMemo } from 'react';
-import { StyleSheet, View, Text, Image, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, radius, spacing } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 import { resolveImage } from '../data/assetRegistry';
 import IconButton from './IconButton';
 
@@ -45,17 +51,8 @@ export default function PlaceCard({
   style,
 }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-
-  // useWindowDimensions re-runs whenever the screen size changes - on rotation,
-  // on a foldable opening, in Android split-screen. The old code read the size
-  // once when the app loaded, so it never updated.
-  const { width } = useWindowDimensions();
-
-  // Carousel cards: about 46% of the screen, so you always see roughly two
-  // and a bit - the visual hint that says "this scrolls sideways".
-  // Math.min/Math.max stop it becoming silly on very small or very large screens.
-  const carouselWidth = Math.min(240, Math.max(150, width * 0.46));
 
   // The image, turned from a stored text key back into something <Image> can
   // show. See data/assetRegistry.js for why this step exists.
@@ -64,24 +61,24 @@ export default function PlaceCard({
   // ---- The horizontal "row" shape, used by the Nearby list ----------------
   if (variant === 'row') {
     return (
-      <TouchableOpacity style={[styles.rowCard, style]} onPress={onPress} activeOpacity={0.85}>
+      <TouchableOpacity style={[styles.rowCard, rtl.row, style]} onPress={onPress} activeOpacity={0.85}>
         <Image source={imageSource} style={styles.rowImage} />
 
         <View style={styles.rowBody}>
-          <Text style={styles.rowName} numberOfLines={1}>
+          <Text style={[styles.rowName, rtl.text]} numberOfLines={1}>
             {place.name}
           </Text>
 
-          <View style={styles.metaLine}>
+          <View style={[styles.metaLine, rtl.row]}>
             <Ionicons name="location-outline" size={12} color={colors.textMuted} />
             <Text style={styles.metaText} numberOfLines={1}>
               {place.location}
             </Text>
           </View>
 
-          <View style={styles.rowBottom}>
+          <View style={[styles.rowBottom, rtl.row]}>
             {/* flexShrink:1 lets this half give way when space runs out... */}
-            <View style={styles.stars}>
+            <View style={[styles.stars, rtl.row]}>
               <Ionicons name="star" size={12} color={colors.star} />
               <Text style={styles.starsText} numberOfLines={1}>
                 {place.rating} · {place.reviews} {t('list.reviews')}
@@ -102,7 +99,7 @@ export default function PlaceCard({
 
   return (
     <TouchableOpacity
-      style={[styles.card, isCarousel ? { width: carouselWidth } : styles.gridCard, style]}
+      style={[styles.card, isCarousel ? styles.carouselCard : styles.gridCard, style]}
       onPress={onPress}
       activeOpacity={0.85}
     >
@@ -148,12 +145,12 @@ export default function PlaceCard({
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.name} numberOfLines={1}>
+        <Text style={[styles.name, rtl.text]} numberOfLines={1}>
           {place.name}
         </Text>
 
         {isCarousel ? (
-          <View style={styles.metaLine}>
+          <View style={[styles.metaLine, rtl.row]}>
             <Ionicons name="location-outline" size={11} color={colors.textMuted} />
             <Text style={styles.metaText} numberOfLines={1}>
               {place.location}
@@ -161,13 +158,13 @@ export default function PlaceCard({
           </View>
         ) : (
           <>
-            <View style={styles.metaLine}>
+            <View style={[styles.metaLine, rtl.row]}>
               <Ionicons name="star" size={11} color={colors.star} />
               <Text style={styles.metaText} numberOfLines={1}>
                 {place.rating} ({place.reviews})
               </Text>
             </View>
-            <Text style={styles.categoryLine} numberOfLines={1}>
+            <Text style={[styles.categoryLine, rtl.text]} numberOfLines={1}>
               {place.category} · {place.price}
             </Text>
           </>
@@ -187,15 +184,17 @@ const makeStyles = (colors) =>
       borderColor: colors.border,
       overflow: 'hidden',      // clips the photo to the rounded corners
     },
+    // The horizontal "Popular" carousel card: a fixed 170 wide, as designed.
+    carouselCard: { width: 170 },
+
     // In a 2-column FlatList each card takes half the row. maxWidth: '48%'
     // is what stops a lone card on an odd-numbered last row from stretching
     // across the whole width - the bug where 7 food places looked wrong.
     gridCard: { flex: 1, maxWidth: '48%' },
 
-    // aspectRatio instead of a fixed height: the image keeps its proportions
-    // whatever width the card ends up being.
-    carouselImage: { width: '100%', aspectRatio: 17 / 11, backgroundColor: colors.surface },
-    gridImage: { width: '100%', aspectRatio: 4 / 3, backgroundColor: colors.surface },
+    // Fixed image heights, matching the original design.
+    carouselImage: { width: '100%', height: 110, backgroundColor: colors.surface },
+    gridImage: { width: '100%', height: 130, backgroundColor: colors.surface },
 
     body: { padding: 10 },
     name: { fontSize: 13, fontWeight: '700', color: colors.text },
@@ -235,6 +234,7 @@ const makeStyles = (colors) =>
     // --- the wide horizontal row ---
     rowCard: {
       flexDirection: 'row',
+      gap: 12,
       backgroundColor: colors.card,
       borderRadius: radius.md,
       padding: 10,
@@ -251,7 +251,8 @@ const makeStyles = (colors) =>
     // minWidth: 0 is the piece people forget. Without it a flex child refuses
     // to shrink below the width of its own content, so numberOfLines never
     // gets a chance to cut the text and it overflows instead.
-    rowBody: { flex: 1, marginLeft: 12, minWidth: 0 },
+    // No marginLeft: the row uses `gap`, which mirrors correctly on its own.
+    rowBody: { flex: 1, minWidth: 0 },
     rowName: { fontSize: 14, fontWeight: '700', color: colors.text },
     rowBottom: {
       flexDirection: 'row',

@@ -48,6 +48,11 @@ import { useT } from '../../store';
 // async: it talks to SQLite, which takes time, so it hands back a Promise.
 import * as planRepo from '../../db/planRepo';
 
+// useRTL() reports which way the language reads. Arabic runs right to left, so
+// rows must be mirrored and text right-aligned. Every helper it returns is null
+// in English and French, so using them below is free in those languages.
+import { useRTL } from '../../theme/rtl';
+
 export default function AdminPlansScreen({ navigation }) {
   // Read the palette that is active right now, then build the stylesheet FROM
   // it. useMemo caches the result: the styles are only rebuilt when `colors`
@@ -55,6 +60,10 @@ export default function AdminPlansScreen({ navigation }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const t = useT();
+
+  // The mirroring helpers used in the JSX below. They only do something when
+  // the chosen language is Arabic.
+  const rtl = useRTL();
 
   // ----------------------------------------------------------
   // STATE
@@ -266,7 +275,10 @@ export default function AdminPlansScreen({ navigation }) {
   const renderItemRow = (item) => (
     // `key` tells React which row is which when the list changes, so it can
     // reuse the rows that stayed put instead of rebuilding every one of them.
-    <View key={item.id} style={styles.itemRow}>
+    // rtl.rowFixed KEEPS this row left to right, even in Arabic. A clock time
+    // like "09:00" and the little timeline beside it read the same way in every
+    // language, so mirroring them would be wrong.
+    <View key={item.id} style={[styles.itemRow, rtl.rowFixed]}>
       {/* flexShrink:0 - the time must stay fully readable, so it never shrinks. */}
       <Text style={styles.itemTime} numberOfLines={1}>
         {item.time}
@@ -302,7 +314,9 @@ export default function AdminPlansScreen({ navigation }) {
       <View style={styles.card}>
         {/* --- HEADER: tapping anywhere in here opens or closes the preview --- */}
         <TouchableOpacity
-          style={styles.cardHead}
+          // rtl.row mirrors the header in Arabic: the calendar circle moves to
+          // the right and the badge to the left. It is null in English.
+          style={[styles.cardHead, rtl.row]}
           onPress={() => toggleExpand(plan)}
           // These two tell a screen reader that this is a button and whether
           // it is currently open. One line each, and the app becomes usable
@@ -318,14 +332,14 @@ export default function AdminPlansScreen({ navigation }) {
 
           {/* The flexible middle column: title on top, meta line underneath. */}
           <View style={styles.headText}>
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={[styles.title, rtl.text]} numberOfLines={1}>
               {plan.title}
             </Text>
 
             {/* All three facts on ONE line so they shrink as a single block.
                 The separators are part of the text rather than separate Text
                 elements, which lets numberOfLines={1} cut at a natural place. */}
-            <Text style={styles.meta} numberOfLines={1}>
+            <Text style={[styles.meta, rtl.text]} numberOfLines={1}>
               {plan.dayDate}
               {'  ·  '}
               {plan.itemCount} {t('plan.activities')}
@@ -336,7 +350,9 @@ export default function AdminPlansScreen({ navigation }) {
 
           {/* The right column must stay fully readable, so it never shrinks -
               the title is the part that truncates instead. */}
-          <View style={styles.headRight}>
+          {/* rtl.row swaps the badge and the chevron over in Arabic. The badge
+              handles its own mirroring, so we only change the order here. */}
+          <View style={[styles.headRight, rtl.row]}>
             <StatusBadge status={plan.status} t={t} />
             <Ionicons
               // The chevron flips to point up while the card is open: a small
@@ -361,7 +377,7 @@ export default function AdminPlansScreen({ navigation }) {
               // .map turns the array of activities into an array of rows.
               cachedItems.map(renderItemRow)
             ) : (
-              <Text style={styles.previewEmpty}>0 {t('plan.activities')}</Text>
+              <Text style={[styles.previewEmpty, rtl.text]}>0 {t('plan.activities')}</Text>
             )}
           </View>
         ) : null}
@@ -449,7 +465,9 @@ export default function AdminPlansScreen({ navigation }) {
       {/* THE FILTER ROW. flexWrap 'wrap' lets the chips drop to a second line on
           a narrow phone, or in a language with longer words, instead of being
           squashed or pushed off the edge. */}
-      <View style={styles.filterRow}>
+      {/* rtl.row starts the chips from the right in Arabic, which is where the
+          eye begins there. It is null in English, so nothing moves. */}
+      <View style={[styles.filterRow, rtl.row]}>
         {filters.map((f) => (
           // `key` is required whenever you build elements from an array. React
           // uses it to tell the items apart between renders so it can reuse the

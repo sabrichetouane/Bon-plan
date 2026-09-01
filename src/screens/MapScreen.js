@@ -34,6 +34,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, radius, spacing } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 import { useT } from '../store';
 import { resolveImage } from '../data/assetRegistry';
 import * as placeRepo from '../db/placeRepo';
@@ -60,6 +61,10 @@ const MARKER_ICONS = {
 export default function MapScreen({ navigation }) {
   // `mode` is 'light' or 'dark'. It was previously read and ignored.
   const { colors, mode } = useTheme();
+  // Arabic mirrors the floating controls and the bottom card. The map itself
+  // and its markers are never mirrored - a map is not text. In English and
+  // French every rtl.* value is empty, so nothing moves at all.
+  const rtl = useRTL();
   const t = useT();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -217,8 +222,10 @@ export default function MapScreen({ navigation }) {
         })}
       </MapView>
 
-      {/* ---------- FLOATING TOP BAR ---------- */}
-      <View style={styles.topBar}>
+      {/* ---------- FLOATING TOP BAR ----------
+          rtl.row moves the locate button to the left in Arabic, so the search
+          box still begins on the side the reader starts from. */}
+      <View style={[styles.topBar, rtl.row]}>
         <SearchField
           value={query}
           onChangeText={setQuery}
@@ -262,9 +269,9 @@ export default function MapScreen({ navigation }) {
       {/* A small counter, so it is obvious when a filter has hidden everything
           rather than the map simply failing to load. */}
       {visible.length === 0 && (
-        <View style={styles.noResults}>
+        <View style={[styles.noResults, rtl.row]}>
           <Ionicons name="search" size={16} color={colors.textMuted} />
-          <Text style={styles.noResultsText}>{t('list.empty')}</Text>
+          <Text style={[styles.noResultsText, rtl.text]}>{t('list.empty')}</Text>
         </View>
       )}
 
@@ -274,9 +281,11 @@ export default function MapScreen({ navigation }) {
           {/* The little grey handle, a familiar "this is a sheet" signal. */}
           <View style={styles.sheetHandle} />
 
+          {/* rtl.row mirrors the whole card in Arabic: photo on the right, the
+              go button on the left. The map behind it is left untouched. */}
           <TouchableOpacity
             activeOpacity={0.9}
-            style={styles.sheetRow}
+            style={[styles.sheetRow, rtl.row]}
             onPress={() => navigation.navigate('PlaceDetail', { placeId: selected.id })}
           >
             <Image source={resolveImage(selected.image)} style={styles.sheetImage} />
@@ -284,25 +293,27 @@ export default function MapScreen({ navigation }) {
             {/* flex:1 + minWidth:0 lets these lines shrink instead of pushing
                 the arrow button off the right edge on a narrow phone. */}
             <View style={styles.sheetText}>
-              <Text style={styles.sheetName} numberOfLines={1}>
+              <Text style={[styles.sheetName, rtl.text]} numberOfLines={1}>
                 {selected.name}
               </Text>
-              <View style={styles.sheetMeta}>
+              <View style={[styles.sheetMeta, rtl.row]}>
                 <Ionicons name="star" size={11} color={colors.star} />
-                <Text style={styles.sheetMetaText} numberOfLines={1}>
+                <Text style={[styles.sheetMetaText, rtl.text]} numberOfLines={1}>
                   {selected.rating} · {selected.category}
                 </Text>
               </View>
-              <View style={styles.sheetMeta}>
+              <View style={[styles.sheetMeta, rtl.row]}>
                 <Ionicons name="location-outline" size={11} color={colors.textMuted} />
-                <Text style={styles.sheetMetaText} numberOfLines={1}>
+                <Text style={[styles.sheetMetaText, rtl.text]} numberOfLines={1}>
                   {selected.location}
                 </Text>
               </View>
             </View>
 
+            {/* An arrow inside a button points the way the reader moves, so it
+                flips in Arabic. rtl.arrowIcon picks the matching icon name. */}
             <View style={[styles.goButton, { backgroundColor: selected.color }]}>
-              <Ionicons name="arrow-forward" size={16} color="#fff" />
+              <Ionicons name={rtl.arrowIcon} size={16} color="#fff" />
             </View>
           </TouchableOpacity>
         </View>

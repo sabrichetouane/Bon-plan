@@ -18,6 +18,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, radius, spacing } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 import { PressableText } from './Buttons';
 
 // ===========================================================================
@@ -68,13 +69,14 @@ export function EmptyState({ icon = 'search', title, subtitle, action, style }) 
 // ===========================================================================
 export function SectionHeader({ title, actionLabel, onActionPress, style }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
-    <View style={[styles.sectionHeader, style]}>
+    <View style={[styles.sectionHeader, rtl.row, style]}>
       {/* flex:1 + numberOfLines: a long translated title shrinks instead of
           pushing the "See all" link off the right edge of the screen. */}
-      <Text style={styles.sectionTitle} numberOfLines={1}>
+      <Text style={[styles.sectionTitle, rtl.text]} numberOfLines={1}>
         {title}
       </Text>
 
@@ -92,6 +94,7 @@ export function SectionHeader({ title, actionLabel, onActionPress, style }) {
 //   t       translator, so the word itself is localised
 export function StatusBadge({ status, t = (k) => k, style }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // Pick the colour and the icon that go with this status.
@@ -106,7 +109,7 @@ export function StatusBadge({ status, t = (k) => k, style }) {
   const config = CONFIG[status] || CONFIG.pending;
 
   return (
-    <View style={[styles.badge, { backgroundColor: config.color + '22' }, style]}>
+    <View style={[styles.badge, { backgroundColor: config.color + '22' }, rtl.row, style]}>
       {/* '22' appended to a hex colour is its alpha channel - about 13%
           opacity. It gives a soft tinted background from the same colour. */}
       <Ionicons name={config.icon} size={12} color={config.color} />

@@ -2,7 +2,7 @@
 // HomeScreen.js - THE LANDING SCREEN (Home tab)
 //
 // Layout, top to bottom:
-//   1. Header: a greeting, the city pill (now tappable), a favorites shortcut
+//   1. Header: the city pill (now tappable) + a favorites button
 //   2. Search bar - NOW WORKING. It used to be decorative.
 //   3. Horizontal row of category circles
 //   4. Blue banner that opens the day planner
@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, radius, spacing, hitSlopFor } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import * as placeRepo from '../db/placeRepo';
 
@@ -33,15 +34,17 @@ import { SectionHeader, Loading, EmptyState } from '../components/Feedback';
 
 export default function HomeScreen({ navigation }) {
   const { colors } = useTheme();
+  // useRTL() hands back tiny style pieces that mirror the layout in Arabic.
+  // In English and French every one of them is null, so nothing moves there.
+  const rtl = useRTL();
   const t = useT();
-  const { city, user, isFavorite, toggleFavorite, isLoggedIn } = useStore();
+  const { city, favorites, isFavorite, toggleFavorite, isLoggedIn } = useStore();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // --- What is on screen ---------------------------------------------------
   const [categories, setCategories] = useState([]);   // the 6 category circles
   const [featured, setFeatured] = useState([]);       // the "Popular" carousel
   const [nearby, setNearby] = useState([]);           // the "Nearby" list
-  const [counts, setCounts] = useState({});           // how many places per category
 
   // --- Screen state --------------------------------------------------------
   const [loading, setLoading] = useState(true);
@@ -60,17 +63,15 @@ export default function HomeScreen({ navigation }) {
     try {
       // Promise.all runs all four queries AT THE SAME TIME rather than waiting
       // for each to finish before starting the next. Four trips in the time of one.
-      const [cats, featuredRows, allRows, countRows] = await Promise.all([
+      const [cats, featuredRows, allRows] = await Promise.all([
         placeRepo.listCategories(),
         placeRepo.listPlaces({ featuredOnly: true, limit: 6 }),
         placeRepo.listPlaces({ limit: 12 }),
-        placeRepo.countPlacesByCategory(),
       ]);
 
       setCategories(cats);
       setFeatured(featuredRows);
       setNearby(allRows);
-      setCounts(countRows);
     } catch (e) {
       console.warn('[HomeScreen] load failed:', e);
     } finally {
@@ -152,41 +153,46 @@ export default function HomeScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
         }
       >
-        {/* ---------- HEADER ---------- */}
-        <View style={styles.header}>
-          {/* flex:1 + minWidth:0 so a long name shrinks instead of pushing the
-              buttons off the right edge of a small screen. */}
-          <View style={styles.headerLeft}>
-            <Text style={styles.greeting} numberOfLines={1}>
-              {/* Show the person's first name when logged in, otherwise a
-                  neutral greeting. .split(' ')[0] takes the first word. */}
-              {user ? `${t('home.nearby')} · ${user.name.split(' ')[0]}` : 'Bon Plan Bizerte'}
+        {/* ---------- HEADER ----------
+            The original layout: the city pill on the left, a round button on
+            the right. The only difference now is that both of them work - the
+            pill opens the city picker, and the button opens your favorites. */}
+        {/* rtl.row flips this row in Arabic: the city pill moves to the right
+            edge and the favorites button to the left. It does nothing in
+            English or French. */}
+        <View style={[styles.header, rtl.row]}>
+          {/* The city pill. It used to be a plain View with a chevron that led
+              nowhere; it is a real button now, and it shows the city you
+              actually chose instead of a hardcoded "Bizerte". */}
+          {/* Inside the pill: the pin, the city name and the chevron read
+              right-to-left in Arabic. */}
+          <TouchableOpacity
+            style={[styles.cityPill, rtl.row]}
+            onPress={() => navigation.navigate('ChooseCity', { fromProfile: true })}
+            hitSlop={hitSlopFor(28)}
+          >
+            <Ionicons name="location" size={14} color={colors.primary} />
+            <Text style={[styles.cityText, rtl.text]} numberOfLines={1}>
+              {city}
             </Text>
+            <Ionicons name="chevron-down" size={14} color={colors.text} />
+          </TouchableOpacity>
 
-            {/* The city pill. It used to be a plain View with a chevron that
-                did nothing - now it really opens the city picker. */}
-            <TouchableOpacity
-              style={styles.cityPill}
-              onPress={() => navigation.navigate('ChooseCity', { fromProfile: true })}
-              hitSlop={hitSlopFor(28)}
-            >
-              <Ionicons name="location" size={14} color={colors.primary} />
-              <Text style={styles.cityText} numberOfLines={1}>
-                {city}
-              </Text>
-              <Ionicons name="chevron-down" size={14} color={colors.text} />
-            </TouchableOpacity>
+          {/* The round button on the right. It used to have no onPress at all.
+              It now opens your saved favorites, and the little red dot appears
+              only when you actually have some. */}
+          <View>
+            <IconButton
+              name="heart-outline"
+              size={22}
+              diameter={40}
+              onPress={() => navigation.navigate(isLoggedIn ? 'Favorites' : 'Login')}
+              accessibilityLabel={t('fav.title')}
+            />
+            {/* pointerEvents="none" lets a tap pass straight THROUGH the dot to
+                the button underneath, so the dot can never swallow a press. */}
+            {favorites.size > 0 && <View style={styles.badge} pointerEvents="none" />}
           </View>
-
-          {/* The bell used to do nothing. It now opens saved favorites, which
-              is a real destination the app was missing. */}
-          <IconButton
-            name="heart-outline"
-            size={20}
-            diameter={40}
-            onPress={() => navigation.navigate(isLoggedIn ? 'Favorites' : 'Login')}
-            accessibilityLabel={t('fav.title')}
-          />
         </View>
 
         {/* ---------- SEARCH ---------- */}
@@ -226,46 +232,51 @@ export default function HomeScreen({ navigation }) {
           // ---------- THE NORMAL PAGE ----------
           <>
             {/* CATEGORY CIRCLES */}
+            {/* rtl.row lays the circles out starting from the right in Arabic. */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesRow}
+              contentContainerStyle={[styles.categoriesRow, rtl.row]}
             >
               {categories.map((cat) => (
+                // rtl.marginEnd puts the gap AFTER each circle, which is the
+                // right side in English and the left side in Arabic.
                 <TouchableOpacity
                   key={cat.id}
-                  style={styles.categoryItem}
+                  style={[styles.categoryItem, rtl.marginEnd(14)]}
                   onPress={() => navigation.navigate('CategoryList', { category: cat })}
                 >
                   <View style={styles.categoryCircle}>
                     <Ionicons name={cat.icon} size={22} color={colors.primary} />
                   </View>
-                  <Text style={styles.categoryLabel} numberOfLines={1}>
+                  {/* Already centred, so it only needs the right-to-left hint. */}
+                  <Text style={[styles.categoryLabel, rtl.textCenter]} numberOfLines={1}>
                     {/* t('cat.' + id) builds the key at runtime, e.g. 'cat.food'. */}
                     {t('cat.' + cat.id)}
                   </Text>
-                  {/* How many places are in this category - the screen used to
-                      give no hint that some were nearly empty. */}
-                  <Text style={styles.categoryCount}>{counts[cat.id] || 0}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             {/* BANNER -> the day planner */}
+            {/* rtl.row moves the round arrow to the left end of the banner in
+                Arabic, with the text block on the right. */}
             <TouchableOpacity
-              style={styles.banner}
+              style={[styles.banner, rtl.row]}
               onPress={() => navigation.navigate('Main', { screen: 'Itinerary' })}
             >
               <View style={styles.bannerText}>
-                <Text style={styles.bannerTitle} numberOfLines={2}>
+                <Text style={[styles.bannerTitle, rtl.text]} numberOfLines={2}>
                   {t('home.planTitle')}
                 </Text>
-                <Text style={styles.bannerSub} numberOfLines={3}>
+                <Text style={[styles.bannerSub, rtl.text]} numberOfLines={3}>
                   {t('home.planSub')}
                 </Text>
               </View>
               <View style={styles.bannerArrow}>
-                <Ionicons name="arrow-forward" size={18} color={colors.primary} />
+                {/* This arrow means "go forward", so it points the way the
+                    reader moves - left in Arabic. */}
+                <Ionicons name={rtl.arrowIcon} size={18} color={colors.primary} />
               </View>
             </TouchableOpacity>
 
@@ -320,6 +331,24 @@ export default function HomeScreen({ navigation }) {
           </>
         )}
       </ScrollView>
+
+      {/* ---------- ADD A PLACE ----------
+          A floating round button in the bottom-right corner. "Add a place" also
+          lives in the Profile menu, but it was buried there and easy to miss -
+          this puts it one tap away from the main screen.
+
+          It sits OUTSIDE the ScrollView so it stays put while the page scrolls.
+          A guest is sent to log in first, because a submitted place has to be
+          attributed to somebody. */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate(isLoggedIn ? 'AddPlace' : 'Login')}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={t('place.addOne')}
+      >
+        <Ionicons name="add" size={26} color="#fff" />
+      </TouchableOpacity>
     </Screen>
   );
 }
@@ -334,11 +363,9 @@ const makeStyles = (colors) =>
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingHorizontal: spacing.xl,
-      paddingTop: spacing.sm,
+      paddingTop: spacing.md,
       gap: spacing.sm,
     },
-    headerLeft: { flex: 1, minWidth: 0, gap: 6 },
-    greeting: { fontSize: 13, color: colors.textMuted, fontWeight: '500' },
     cityPill: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -347,12 +374,22 @@ const makeStyles = (colors) =>
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: radius.pill,
-      // alignSelf keeps the pill only as wide as its text, instead of
-      // stretching across the whole header.
-      alignSelf: 'flex-start',
-      maxWidth: '100%',
+      // flexShrink lets a long city name give way rather than pushing the
+      // button on the right off the edge of a narrow screen.
+      flexShrink: 1,
     },
     cityText: { color: colors.text, fontWeight: '600', flexShrink: 1 },
+    // The little red dot on the favorites button, exactly where the original
+    // notification badge sat.
+    badge: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.danger,
+    },
 
     search: { marginHorizontal: spacing.xl, marginTop: spacing.lg },
 
@@ -363,6 +400,8 @@ const makeStyles = (colors) =>
       paddingVertical: spacing.lg,
       gap: 18,
     },
+    // The 14px gap that used to be marginRight lives in the JSX now, as
+    // rtl.marginEnd(14), so it stays on the correct side when the strip mirrors.
     categoryItem: { alignItems: 'center', width: 64 },
     categoryCircle: {
       width: 56,
@@ -374,7 +413,6 @@ const makeStyles = (colors) =>
       marginBottom: 6,
     },
     categoryLabel: { fontSize: 12, color: colors.text, fontWeight: '500', textAlign: 'center' },
-    categoryCount: { fontSize: 10, color: colors.textMuted, marginTop: 1 },
 
     banner: {
       flexDirection: 'row',
@@ -401,4 +439,25 @@ const makeStyles = (colors) =>
 
     carousel: { paddingHorizontal: spacing.xl, gap: 14, paddingBottom: 4 },
     nearbyList: { paddingHorizontal: spacing.xl },
+
+    // The floating "add a place" button.
+    fab: {
+      position: 'absolute',
+      right: spacing.xl,
+      bottom: spacing.xl,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      // It floats above the content, so it needs a shadow to read as raised.
+      // iOS uses shadow*, Android uses elevation - set both or it looks flat
+      // on whichever platform you forgot.
+      shadowColor: '#000',
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 8,
+    },
   });

@@ -17,6 +17,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, radius, MIN_TAP } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 
 // ---------------------------------------------------------------------------
 // Props:
@@ -28,6 +29,7 @@ import { useTheme, radius, MIN_TAP } from '../theme/colors';
 // ---------------------------------------------------------------------------
 export default function Chip({ label, icon, active = false, onPress, variant = 'flat', style }) {
   const { colors } = useTheme();
+  const rtl = useRTL();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
@@ -37,6 +39,7 @@ export default function Chip({ label, icon, active = false, onPress, variant = '
         styles.chip,
         variant === 'floating' ? styles.chipFloating : styles.chipFlat,
         active && styles.chipActive,
+        rtl.row,
         style,
       ]}
       accessibilityRole="button"

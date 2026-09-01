@@ -242,7 +242,13 @@ export async function createPlace({
   // The moderation rule, in one line.
   const status = isAdmin ? 'approved' : 'pending';
 
-  await db.withTransactionAsync(async () => {
+  // WHY try/catch HERE: a foreign key violation - for example a `createdBy`
+  // pointing at an account that has just been deleted - makes the INSERT THROW
+  // rather than return a value. Every other failure in this function comes back
+  // as { ok: false, error }, so without this the calling screen would have to
+  // handle two completely different kinds of failure.
+  try {
+    await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO places (
          id, name, category_id, subtitle, description, location,
@@ -279,7 +285,11 @@ export async function createPlace({
         [id, photo, index]
       );
     }
-  });
+    });
+  } catch (error) {
+    console.warn('[placeRepo] createPlace failed:', error);
+    return { ok: false, error: 'saveFailed' };
+  }
 
   return { ok: true, id, status };
 }

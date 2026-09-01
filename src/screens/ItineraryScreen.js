@@ -33,6 +33,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, radius, spacing, hitSlopFor } from '../theme/colors';
+import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
 import * as planRepo from '../db/planRepo';
 
@@ -92,6 +93,10 @@ function formatLongDate(dateKey, language) {
 
 export default function ItineraryScreen({ navigation }) {
   const { colors } = useTheme();
+  // useRTL gives back small style objects that mirror the layout when the
+  // language is Arabic. In English and French every one of them is null, so
+  // adding them to a style array changes nothing there.
+  const rtl = useRTL();
   const t = useT();
   const {
     userId,
@@ -239,7 +244,8 @@ export default function ItineraryScreen({ navigation }) {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.weekRow}
+          // rtl.row lays the seven days out starting from the right in Arabic.
+          contentContainerStyle={[styles.weekRow, rtl.row]}
         >
           {week.map((day) => {
             const isSelected = day.key === selectedDay;
@@ -266,12 +272,14 @@ export default function ItineraryScreen({ navigation }) {
       </View>
 
       {/* ---------- SUMMARY ---------- */}
-      <View style={styles.summary}>
+      {/* rtl.row mirrors this row in Arabic - the date moves to the right and
+          the add button to the left. It does nothing in English. */}
+      <View style={[styles.summary, rtl.row]}>
         <View style={styles.summaryText}>
-          <Text style={styles.summaryTitle} numberOfLines={1}>
+          <Text style={[styles.summaryTitle, rtl.text]} numberOfLines={1}>
             {formatLongDate(selectedDay, language)}
           </Text>
-          <Text style={styles.summarySub} numberOfLines={1}>
+          <Text style={[styles.summarySub, rtl.text]} numberOfLines={1}>
             {items.length} {t('itin.activities')} · {totalLabel}
           </Text>
         </View>
@@ -306,8 +314,12 @@ export default function ItineraryScreen({ navigation }) {
             />
           ) : (
             items.map((item, index) => (
-              <View key={item.id} style={styles.row}>
-                {/* LEFT: the time, a coloured dot, and the connecting line. */}
+              <View key={item.id} style={[styles.row, rtl.row]}>
+                {/* LEFT: the time, a coloured dot, and the connecting line.
+                    rtl.row on the line above moves this whole column - and with
+                    it the timeline - to the right edge in Arabic. The time text
+                    itself deliberately gets no rtl.text: a clock reading like
+                    "09:00" is written left to right in every language. */}
                 <View style={styles.timeColumn}>
                   <Text style={styles.time}>{item.time}</Text>
                   <View style={[styles.timeDot, { backgroundColor: item.color }]} />
@@ -318,21 +330,26 @@ export default function ItineraryScreen({ navigation }) {
                 {/* RIGHT: the activity card. Tapping it opens the edit form -
                     the thing "Tap to edit" used to promise but never did. */}
                 <TouchableOpacity
-                  style={[styles.card, { borderLeftColor: item.color }]}
+                  // rtl.borderStart draws the 4px coloured bar on the edge the
+                  // card starts at: the left in English, the right in Arabic.
+                  // rtl.row then swaps the text and the up/down/delete controls.
+                  style={[styles.card, rtl.borderStart(4, item.color), rtl.row]}
                   onPress={() => startEditing(item)}
                   activeOpacity={0.85}
                 >
                   <View style={styles.cardText}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>
+                    <Text style={[styles.cardTitle, rtl.text]} numberOfLines={1}>
                       {item.title}
                     </Text>
                     {item.subtitle ? (
-                      <Text style={styles.cardSubtitle} numberOfLines={1}>
+                      <Text style={[styles.cardSubtitle, rtl.text]} numberOfLines={1}>
                         {item.subtitle}
                       </Text>
                     ) : null}
 
-                    <View style={styles.durationBadge}>
+                    {/* rtl.alignStart pins the badge to the side the text
+                        starts from - still the left in English. */}
+                    <View style={[styles.durationBadge, rtl.row, rtl.alignStart]}>
                       <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
                       <Text style={styles.durationText}>{item.duration}</Text>
                     </View>
@@ -382,7 +399,7 @@ export default function ItineraryScreen({ navigation }) {
           )}
 
           {/* The "add" row at the bottom of the list. */}
-          <TouchableOpacity style={styles.addRow} onPress={addBlankActivity}>
+          <TouchableOpacity style={[styles.addRow, rtl.row]} onPress={addBlankActivity}>
             <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
             <Text style={styles.addRowText}>{t('itin.addActivity')}</Text>
           </TouchableOpacity>
@@ -395,7 +412,7 @@ export default function ItineraryScreen({ navigation }) {
       {editing && (
         <View style={styles.editPanel}>
           <View style={styles.editHandle} />
-          <Text style={styles.editTitle}>{t('plan.editActivity')}</Text>
+          <Text style={[styles.editTitle, rtl.text]}>{t('plan.editActivity')}</Text>
 
           <FormField
             label={t('plan.activityTitle')}
@@ -405,7 +422,7 @@ export default function ItineraryScreen({ navigation }) {
           />
 
           {/* Two half-width fields side by side. */}
-          <View style={styles.editRow}>
+          <View style={[styles.editRow, rtl.row]}>
             <FormField
               label={t('plan.activityTime')}
               value={formTime}
@@ -505,7 +522,9 @@ const makeStyles = (colors) =>
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
-      borderLeftWidth: 4,
+      // No borderLeftWidth here any more: the 4px coloured edge bar is applied
+      // in the JSX with rtl.borderStart(4, ...) so it can sit on the left in
+      // English and the right in Arabic. Nothing changes for an English user.
       padding: spacing.md,
       marginBottom: 12,
     },
