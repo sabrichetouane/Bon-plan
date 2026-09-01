@@ -706,11 +706,20 @@ const makeStyles = (colors) =>
     },
     description: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
 
-    galleryRow: { gap: 10, paddingVertical: 4 },
+    galleryRow: {
+      gap: 10,
+      paddingVertical: 4,
+      // A horizontal ScrollView stretches its children vertically by default.
+      // Without this the gallery photos grew to fill the screen instead of
+      // staying thumbnail-sized. See the same note in AddPlaceScreen.
+      alignItems: 'flex-start',
+    },
     galleryImage: {
-      width: 140,
-      // aspectRatio instead of a fixed height keeps the photo's proportions.
-      aspectRatio: 3 / 2,
+      // The original design's thumbnail size. A fixed height, not aspectRatio:
+      // aspectRatio needs the other dimension to be settled first, and inside a
+      // stretching row it is not.
+      width: 130,
+      height: 90,
       borderRadius: radius.md,
       backgroundColor: colors.surface,
     },

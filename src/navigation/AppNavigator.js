@@ -47,6 +47,7 @@ import FavoritesScreen from '../screens/FavoritesScreen';
 import AddPlaceScreen from '../screens/AddPlaceScreen';
 import MyPlacesScreen from '../screens/MyPlacesScreen';
 import MyPlansScreen from '../screens/MyPlansScreen';
+import PickPlaceScreen from '../screens/PickPlaceScreen';
 
 // --- Admin ---
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -220,6 +221,12 @@ export default function AppNavigator() {
           name="MyPlans"
           component={MyPlansScreen}
           options={{ animation: 'slide_from_right' }}
+        />
+        {/* Opened from the Itinerary tab: pick a place to drop into the plan. */}
+        <Stack.Screen
+          name="PickPlace"
+          component={PickPlaceScreen}
+          options={{ animation: 'slide_from_bottom' }}
         />
         <Stack.Screen
           name="EditProfile"

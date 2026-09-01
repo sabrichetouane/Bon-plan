@@ -292,14 +292,33 @@ export default function AddPlaceScreen({ navigation }) {
             </Text>
           </View>
 
+        </ScrollView>
+
+        {/* ---------- SUBMIT, PINNED TO THE BOTTOM ----------
+            This sits OUTSIDE the ScrollView, so it is always on screen no
+            matter how far down the form you are. It used to be the last thing
+            inside the scrolling area, which meant you had to scroll past every
+            field AND the photo strip to reach it - and while the photo strip
+            was broken and enormous, you effectively never got there.
+
+            A required action should never be something you have to hunt for. */}
+        <View style={styles.footer}>
+          {/* Say WHY the button is greyed out, rather than leaving the user
+              tapping a dead button and wondering. */}
+          {(name.trim() === '' || !categoryId) && (
+            <Text style={[styles.footerHint, rtl.text]}>
+              {name.trim() === '' ? t('error.nameTooShort') : t('error.categoryRequired')}
+            </Text>
+          )}
+
           <PrimaryButton
             title={t('place.submit')}
+            icon="checkmark-circle-outline"
             onPress={handleSubmit}
             loading={saving}
             disabled={name.trim() === '' || !categoryId}
-            style={styles.submit}
           />
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -327,7 +346,20 @@ const makeStyles = (colors) =>
       marginBottom: spacing.lg,
     },
 
-    photoRow: { gap: 10, paddingVertical: 4, paddingBottom: spacing.lg },
+    photoRow: {
+      gap: 10,
+      paddingVertical: 4,
+      paddingBottom: spacing.lg,
+      // THIS LINE IS THE BUG FIX.
+      // Inside a HORIZONTAL ScrollView, React Native stretches children on the
+      // cross axis (vertically) by default - alignItems is 'stretch'. Because
+      // the tiles below had no fixed height, they stretched to fill whatever
+      // vertical space was going, and the photos blew up to fill the screen.
+      // That also pushed the Submit button far below the fold, which is why it
+      // looked like there was no submit button at all.
+      // 'flex-start' tells the tiles to be exactly as tall as their content.
+      alignItems: 'flex-start',
+    },
     photoTile: {
       borderRadius: radius.md,
       borderWidth: 2,
@@ -336,10 +368,11 @@ const makeStyles = (colors) =>
     },
     photoTileActive: { borderColor: colors.primary },
     photo: {
+      // A real height, not aspectRatio. aspectRatio only works when the OTHER
+      // dimension is already settled; inside a stretching row it is not, and
+      // the image ends up any size at all.
       width: 96,
-      // aspectRatio rather than a fixed height keeps every thumbnail the same
-      // shape whatever the source photo's proportions are.
-      aspectRatio: 4 / 3,
+      height: 72,
       backgroundColor: colors.surface,
     },
     photoCheck: {
@@ -361,7 +394,17 @@ const makeStyles = (colors) =>
     },
     noteText: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
 
-    submit: { marginTop: spacing.sm },
+    // The fixed bar at the bottom holding the Submit button.
+    footer: {
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+      backgroundColor: colors.card,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      gap: spacing.sm,
+    },
+    footerHint: { fontSize: 12, color: colors.textMuted },
 
     guest: {
       flex: 1,

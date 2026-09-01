@@ -447,7 +447,15 @@ const makeStyles = (colors) =>
       justifyContent: 'center',
     },
 
-    carousel: { paddingHorizontal: spacing.xl, gap: 14, paddingBottom: 4 },
+    carousel: {
+      paddingHorizontal: spacing.xl,
+      gap: 14,
+      paddingBottom: 4,
+      // A horizontal ScrollView stretches its children vertically unless told
+      // otherwise. Pinning the alignment stops any child without a fixed height
+      // from growing to fill the row.
+      alignItems: 'flex-start',
+    },
     nearbyList: { paddingHorizontal: spacing.xl },
 
     // The floating "add a place" button.

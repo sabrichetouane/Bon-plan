@@ -361,7 +361,14 @@ const makeStyles = (colors) =>
     search: { flex: 1 },
 
     chipsWrap: { position: 'absolute', top: 108, left: 0, right: 0 },
-    chipsRow: { paddingHorizontal: spacing.lg, gap: 8 },
+    chipsRow: {
+      paddingHorizontal: spacing.lg,
+      gap: 8,
+      // A horizontal ScrollView stretches its children vertically unless told
+      // otherwise. Pinning the alignment stops any child without a fixed height
+      // from growing to fill the row.
+      alignItems: 'center',
+    },
 
     noResults: {
       position: 'absolute',

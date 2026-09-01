@@ -73,7 +73,17 @@ value:     { flexShrink: 0 }          // the side that must stay readable
   `fontSize` with the OS setting but leaves `lineHeight` alone, so lines collide.
 - **Never** `Dimensions.get()` at module scope — it's frozen at import and never
   updates on rotation, foldables or split-screen. Use `useWindowDimensions()`.
-- Prefer `aspectRatio` over a fixed image height.
+- **Never `aspectRatio` on a child of a horizontal `ScrollView`.** A horizontal
+  ScrollView stretches its children on the cross axis (`alignItems: 'stretch'`),
+  so a child with no fixed height has nothing to compute the ratio against and
+  grows to fill the row — the photos blow up to fill the screen. This actually
+  happened twice here (the Add-place photo strip and the PlaceDetail gallery),
+  and in the Add-place case it pushed the Submit button so far down that it
+  looked like there was no Submit button at all.
+  In a horizontal strip: give the item a **fixed `height`**, and put
+  `alignItems: 'flex-start'` (or `'center'`) on the `contentContainerStyle`.
+  `aspectRatio` is fine in a vertical container where the width is already
+  settled — e.g. `width: '100%'` inside a column.
 - `paddingVertical: 0` on every `TextInput` — Android adds its own hidden
   padding on top of yours.
 

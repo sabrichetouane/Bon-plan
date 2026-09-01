@@ -289,8 +289,8 @@ export default function ItineraryScreen({ navigation }) {
           color="#fff"
           diameter={38}
           background={colors.primary}
-          onPress={addBlankActivity}
-          accessibilityLabel={t('itin.addActivity')}
+          onPress={() => navigation.navigate('PickPlace')}
+          accessibilityLabel={t('plan.addPlace')}
         />
       </View>
 
@@ -308,8 +308,8 @@ export default function ItineraryScreen({ navigation }) {
               title={t('itin.emptyTitle')}
               subtitle={t('itin.emptySub')}
               action={{
-                label: t('fav.explore'),
-                onPress: () => navigation.navigate('Main', { screen: 'Home' }),
+                label: t('plan.addPlace'),
+                onPress: () => navigation.navigate('PickPlace'),
               }}
             />
           ) : (
@@ -398,10 +398,26 @@ export default function ItineraryScreen({ navigation }) {
             ))
           )}
 
-          {/* The "add" row at the bottom of the list. */}
+          {/* ---------- THE TWO WAYS TO ADD SOMETHING ----------
+              Before, there was only one button and it made an empty "New
+              activity" row you had to type into. There was no way to put a
+              REAL place into your day from here at all - you had to leave the
+              planner, find the place, and add it from its own page.
+
+              So there are two buttons now:
+                Add a place       -> opens the picker, choose from the 30 places
+                Custom activity   -> the old blank row, for "lunch at home" */}
+          <TouchableOpacity
+            style={[styles.addPlaceRow, rtl.row]}
+            onPress={() => navigation.navigate('PickPlace')}
+          >
+            <Ionicons name="location" size={18} color="#fff" />
+            <Text style={styles.addPlaceText}>{t('plan.addPlace')}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={[styles.addRow, rtl.row]} onPress={addBlankActivity}>
             <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-            <Text style={styles.addRowText}>{t('itin.addActivity')}</Text>
+            <Text style={styles.addRowText}>{t('plan.customActivity')}</Text>
           </TouchableOpacity>
         </ScrollView>
       )}
@@ -467,7 +483,14 @@ const makeStyles = (colors) =>
     flexOne: { flex: 1 },
 
     weekWrap: { paddingBottom: spacing.sm },
-    weekRow: { paddingHorizontal: spacing.xl, gap: 8 },
+    weekRow: {
+      paddingHorizontal: spacing.xl,
+      gap: 8,
+      // A horizontal ScrollView stretches its children vertically unless told
+      // otherwise. Pinning the alignment stops any child without a fixed height
+      // from growing to fill the row.
+      alignItems: 'flex-start',
+    },
     day: {
       width: 54,
       paddingVertical: 10,
@@ -544,6 +567,23 @@ const makeStyles = (colors) =>
     },
     durationText: { fontSize: 11, color: colors.textSecondary, fontWeight: '600' },
     cardActions: { alignItems: 'center', gap: 10, flexShrink: 0 },
+
+    // The filled button: adding a real place is the main action, so it looks
+    // like one. The outlined button under it is the secondary choice.
+    addPlaceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      borderRadius: radius.md,
+      marginTop: spacing.sm,
+      // minHeight, not height, so the label is never clipped when the phone's
+      // text size is turned up.
+      minHeight: 48,
+    },
+    addPlaceText: { color: '#fff', fontWeight: '600', fontSize: 15 },
 
     addRow: {
       flexDirection: 'row',

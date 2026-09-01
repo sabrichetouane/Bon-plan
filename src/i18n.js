@@ -348,6 +348,8 @@ const dict = {
   'plan.moveUp':        { en: 'Move up',      fr: 'Monter',       ar: 'أعلى' },
   'plan.moveDown':      { en: 'Move down',    fr: 'Descendre',    ar: 'أسفل' },
   'plan.total':         { en: 'Total',        fr: 'Total',        ar: 'المجموع' },
+  'plan.addPlace':      { en: 'Add a place',  fr: 'Ajouter un lieu', ar: 'أضف مكاناً' },
+  'plan.customActivity': { en: 'Custom activity', fr: 'Activité personnalisée', ar: 'نشاط مخصص' },
 
   // ---- Admin ----
   'admin.title':        { en: 'Administration', fr: 'Administration', ar: 'الإدارة' },
