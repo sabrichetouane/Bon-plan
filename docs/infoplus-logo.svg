@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <rect x="0"   y="0" width="200" height="400" fill="#1A3A8E"/>
+  <rect x="200" y="0" width="200" height="400" fill="#E30613"/>
+  <circle cx="200" cy="200" r="160" fill="#FFFFFF"/>
+  <text x="200" y="228" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="72">
+    <tspan fill="#1A3A8E">info</tspan><tspan fill="#E30613">plus.</tspan>
+  </text>
+</svg>

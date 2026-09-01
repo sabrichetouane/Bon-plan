@@ -1,0 +1,178 @@
+@startuml ClassDiagram_BonPlanBizerte
+' ============================================================================
+' Diagramme de classes — Bon Plan Bizerte
+' Paste this whole block at https://www.plantuml.com/plantuml/uml
+' ============================================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam classFontSize 12
+skinparam classAttributeFontSize 11
+skinparam roundCorner 6
+skinparam linetype ortho
+
+title Diagramme de classes — Bon Plan Bizerte
+
+' --- Énumérations ---
+enum Langue {
+  EN
+  FR
+  AR
+}
+
+enum ThemeMode {
+  LIGHT
+  DARK
+}
+
+' --- Utilisateur ---
+class Utilisateur {
+  - idUser : String
+  - nom : String
+  - email : String
+  - motDePasse : String
+  - langue : Langue
+  - modeTheme : ThemeMode
+  - dateInscription : Date
+  --
+  + seConnecter() : Boolean
+  + seDeconnecter() : void
+  + changerTheme(t : ThemeMode) : void
+  + changerLangue(l : Langue) : void
+  + ajouterFavori(l : Lieu) : void
+  + retirerFavori(l : Lieu) : void
+}
+
+' --- Ville ---
+class Ville {
+  - idVille : String
+  - nom : String
+  - pays : String
+}
+
+' --- Catégorie ---
+class Categorie {
+  - idCategorie : String
+  - libelle : String
+  - icone : String
+}
+
+' --- Classe abstraite Lieu ---
+abstract class Lieu {
+  - idLieu : String
+  - nom : String
+  - description : String
+  - adresse : String
+  - latitude : double
+  - longitude : double
+  - noteMoyenne : double
+  - nbAvis : int
+  - prixSymbolique : String
+  - prixMin : int
+  - prixMax : int
+  - telephone : String
+  - siteWeb : String
+  --
+  + obtenirItineraire() : URL
+  + partager() : void
+  + appeler() : void
+  + ouvrirSiteWeb() : void
+}
+
+class Restaurant {
+  - typeCuisine : String
+  - horaires : String
+}
+
+class Cafe {
+  - typeBoisson : String
+  - wifi : Boolean
+}
+
+class Plage {
+  - typeSable : String
+  - surveillance : Boolean
+}
+
+class LieuNature {
+  - typeEcosysteme : String
+  - niveauDifficulte : String
+}
+
+class Activite {
+  - duree : String
+  - guideDisponible : Boolean
+}
+
+class Magasin {
+  - typeCommerce : String
+  - horairesOuverture : String
+}
+
+' --- Photo ---
+class Photo {
+  - idPhoto : String
+  - url : String
+  - ordre : int
+}
+
+' --- Avis ---
+class Avis {
+  - idAvis : String
+  - note : int
+  - commentaire : String
+  - dateAvis : Date
+}
+
+' --- Favori (classe d'association) ---
+class Favori {
+  - dateAjout : Date
+}
+
+' --- Itinéraire ---
+class Itineraire {
+  - idItineraire : String
+  - date : Date
+  --
+  + ajouterActivite(a : ActiviteItineraire) : void
+  + retirerActivite(idItem : String) : void
+  + calculerDureeTotale() : int
+}
+
+class ActiviteItineraire {
+  - idItem : String
+  - heure : Time
+  - duree : String
+  - titre : String
+  - sousTitre : String
+  - couleur : String
+}
+
+' --- Héritage ---
+Lieu <|-- Restaurant
+Lieu <|-- Cafe
+Lieu <|-- Plage
+Lieu <|-- LieuNature
+Lieu <|-- Activite
+Lieu <|-- Magasin
+
+' --- Associations ---
+Utilisateur "1"      o-- "0..*" Avis            : depose >
+Lieu        "1"      o-- "0..*" Avis            : concerne >
+Lieu        "0..*"   --  "1"    Categorie       : appartient_a >
+Lieu        "0..*"   --  "1"    Ville           : situe_dans >
+Lieu        "1"      *-- "1..*" Photo           : possede >
+Utilisateur "1"      --  "0..*" Ville           : vit_dans >
+
+' Favori = classe d'association entre Utilisateur et Lieu
+Utilisateur "0..*" -- "0..*" Lieu
+(Utilisateur, Lieu) .. Favori
+
+Utilisateur "1"   *-- "0..*" Itineraire          : planifie >
+Itineraire  "1"   *-- "0..*" ActiviteItineraire  : contient >
+ActiviteItineraire "0..*" -- "0..1" Lieu        : reference >
+
+' Énumérations utilisées par Utilisateur
+Utilisateur ..> Langue
+Utilisateur ..> ThemeMode
+
+@enduml

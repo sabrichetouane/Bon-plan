@@ -1,0 +1,27 @@
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env
+.DS_Store
+
+# ---------------------------------------------------------------------------
+# Dead trees — abandoned scaffolds and an old backup (~1.6 GB, ~88k files).
+# They are not part of the app; see CLAUDE.md section 8.
+# ---------------------------------------------------------------------------
+TravelApp/
+pfeee/
+
+# Generated report artefacts (rebuild with the docs/build-*.js scripts)
+docs/*.docx
+docs/*.pptx
+
+# Scratch
+*.log

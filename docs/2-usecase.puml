@@ -1,0 +1,86 @@
+@startuml UseCase_BonPlanBizerte
+' ============================================================================
+' Diagramme de cas d'utilisation — Bon Plan Bizerte
+' Paste this whole block at https://www.plantuml.com/plantuml/uml
+' ============================================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam usecaseFontSize 12
+skinparam actorStyle awesome
+left to right direction
+
+title Cas d'utilisation — Bon Plan Bizerte
+
+actor "Touriste" as User
+actor "Système de cartes\n(Apple/Google Maps)" as Maps
+
+rectangle "Application Bon Plan Bizerte" {
+
+  ' --- Navigation principale ---
+  usecase "Consulter l'accueil"            as UC1
+  usecase "Parcourir par catégorie"        as UC2
+  usecase "Rechercher un lieu"             as UC3
+  usecase "Filtrer\n(prix / note / favoris)" as UC4
+
+  ' --- Détails d'un lieu ---
+  usecase "Consulter détails du lieu"      as UC5
+  usecase "Voir galerie photos"            as UC6
+  usecase "Lire les avis"                  as UC7
+  usecase "Partager un lieu"               as UC8
+  usecase "Appeler le lieu"                as UC9
+  usecase "Visiter le site web"            as UC10
+
+  ' --- Carte ---
+  usecase "Afficher la carte"              as UC11
+  usecase "Filtrer les marqueurs"          as UC12
+  usecase "Obtenir l'itinéraire"           as UC13
+  usecase "Ouvrir carte externe"           as UC14
+
+  ' --- Favoris & planning ---
+  usecase "Ajouter aux favoris"            as UC15
+  usecase "Retirer des favoris"            as UC16
+  usecase "Ajouter au planning"            as UC17
+  usecase "Retirer du planning"            as UC18
+  usecase "Ajouter activité vierge"        as UC19
+
+  ' --- Préférences ---
+  usecase "Changer le thème\n(clair / sombre)" as UC20
+  usecase "Changer la langue\n(EN / FR / AR)"  as UC21
+  usecase "Choisir la ville"               as UC22
+  usecase "Se déconnecter"                 as UC23
+}
+
+' --- Acteur principal ---
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC4
+User --> UC5
+User --> UC8
+User --> UC9
+User --> UC10
+User --> UC11
+User --> UC12
+User --> UC13
+User --> UC15
+User --> UC16
+User --> UC17
+User --> UC18
+User --> UC19
+User --> UC20
+User --> UC21
+User --> UC22
+User --> UC23
+
+' --- Acteur externe ---
+UC14 --> Maps
+
+' --- Relations include / extend ---
+UC5 ..> UC6 : <<include>>
+UC5 ..> UC7 : <<include>>
+UC13 ..> UC14 : <<include>>
+UC8 .> UC5  : <<extend>>
+UC9 .> UC5  : <<extend>>
+UC10 .> UC5 : <<extend>>
+
+@enduml

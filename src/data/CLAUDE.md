@@ -1,0 +1,191 @@
+# Data Layer — [mockData.js](mockData.js)
+
+709 lines. **This file is the whole backend.** No API, no database, no fetch anywhere in
+the app. Every list a screen renders is imported from here at build time.
+
+If a real backend is ever added, this file becomes the seed data and the shape below
+becomes the API contract.
+
+---
+
+## 1. Exports
+
+| Export | Type | Consumed by |
+| --- | --- | --- |
+| `categories` | `Category[]` (6) | HomeScreen icon row |
+| `CITY_CENTER` | `{ latitude, longitude }` | MapScreen `initialRegion` + recenter |
+| `featuredPlaces` | `Place[]` (4) | Home Popular carousel + Nearby list; CategoryList fallback |
+| `foodPlaces` | `Place[]` (7) | CategoryList `food` |
+| `coffeePlaces` | `Place[]` (5) | CategoryList `coffee` |
+| `naturePlaces` | `Place[]` (4) | CategoryList `nature` |
+| `activityPlaces` | `Place[]` (4) | CategoryList `activity` |
+| `shoppingPlaces` | `Place[]` (6) | CategoryList `shopping` |
+| `itinerary` | `ItineraryItem[]` (5) | seeds `userItinerary` in `store.js` |
+| `allMapPlaces` | `Place[]` (30) | MapScreen markers |
+| `findPlaceById(id)` | `Place \| undefined` | **exported but unused** |
+
+`allMapPlaces` is derived, not authored — it flattens the six lists and stamps each entry
+with `kind` and `color`:
+
+```js
+...featuredPlaces.map((p) => ({ ...p, kind: 'featured', color: '#1D2BEF' })),
+...foodPlaces    .map((p) => ({ ...p, kind: 'food',     color: '#F59E0B' })),
+...coffeePlaces  .map((p) => ({ ...p, kind: 'coffee',   color: '#8B5CF6' })),
+...naturePlaces  .map((p) => ({ ...p, kind: 'nature',   color: '#22C55E' })),
+...activityPlaces.map((p) => ({ ...p, kind: 'activity', color: '#06B6D4' })),
+...shoppingPlaces.map((p) => ({ ...p, kind: 'shopping', color: '#EF4444' })),
+```
+
+`kind` drives the map chip filter and the marker icon; `color` drives the marker fill and
+the itinerary row accent.
+
+---
+
+## 2. Shapes
+
+```ts
+type Category = {
+  id: 'food' | 'coffee' | 'beach' | 'nature' | 'activity' | 'shopping';
+  label: string;   // English fallback — the real label is t('cat.' + id)
+  icon: string;    // Ionicons name
+};
+
+type Place = {
+  id: string;              // '1'..'4' featured, 'f*' food, 'c*' coffee,
+                           // 'n*' nature, 'a*' activity, 's*' shopping
+  name: string;
+  category: string;        // free-text subtitle e.g. "Italian · Pizza" — NOT a Category.id
+  rating: number;          // 3.4 – 4.9
+  reviews: number;         // 46 – 412
+  latitude: number;
+  longitude: number;
+  image: number | string;  // require(...) module id OR a URL string
+  gallery: (number|string)[];   // always 3 entries
+  description: string;     // one paragraph, English
+  location: string;        // human address line
+  price: string;           // 'Free' | '5 TND' | '$' | '$$' | '$$$'
+  priceRange?: string;     // food, coffee, a4 only — "15-35 TND per person"
+  phone?: string;          // foodPlaces only
+  website?: string;        // foodPlaces only
+  kind?: string;           // added by allMapPlaces
+  color?: string;          // added by allMapPlaces
+};
+
+type ItineraryItem = {
+  id: string;         // 'i1'..'i5' seeded, 'user-<Date.now()>' when added
+  placeId?: string;   // present only for rows created from a Place
+  time: string;       // 'HH:MM'
+  title: string;
+  subtitle: string;
+  duration: string;   // '1h' | '1h 30m' — parsed by /(\d+)\s*h\s*(\d+)?/
+  color: string;      // hex
+};
+```
+
+`category` is a **display subtitle**, not a foreign key. The only real link between a
+place and its category is which array it lives in (plus `kind` on the map). If you
+normalise the data later, add a proper `categoryId`.
+
+---
+
+## 3. Full inventory — 30 places
+
+| id | Name | `category` (subtitle) | ★ | reviews | lat,lng |
+| --- | --- | --- | --- | --- | --- |
+| `1` | Old Port of Bizerte | Culture | 4.8 | 324 | 37.2755, 9.8756 |
+| `2` | Cap Blanc Viewpoint | Nature | 4.9 | 210 | 37.3447, 9.7586 |
+| `3` | Ichkeul National Park | Nature | 4.7 | 158 | 37.1350, 9.6833 |
+| `4` | Corniche Beach | Beach | 4.6 | 412 | 37.2888, 9.8567 |
+| `f1` | Crock'in | Tunisian · Tea house | 3.5 | 263 | 37.2835, 9.8615 |
+| `f2` | EL Ksiba | Seafood | 4.3 | 124 | 37.2762, 9.8748 |
+| `f3` | Le Grand Bleu Da Ciccio | Italian · Seafood | 3.8 | 46 | 37.2735, 9.8695 |
+| `f4` | Restaurant Le Phenicien | Seafood · Mediterranean | 3.4 | 118 | 37.2779, 9.8711 |
+| `f5` | Piccolino | Italian · Pizza | 4.1 | 96 | 37.2802, 9.8640 |
+| `f6` | Marine Club Restaurant | Seafood · Club | 4.0 | 88 | 37.2745, 9.8792 |
+| `f7` | Bedouin | Tunisian · Grill | 4.2 | 71 | 37.2690, 9.8712 |
+| `c1` | Best Voice Café | Café · Brunch | 4.3 | 142 | 37.2773, 9.8720 |
+| `c2` | Le Quai Lounge | Lounge · Marina view | 4.2 | 98 | 37.2756, 9.8797 |
+| `c3` | Espace Golden Lounge | Lounge · Café | 4.1 | 76 | 37.2720, 9.8684 |
+| `c4` | Jumanji Juice Bar | Juice bar · Café | 4.0 | 54 | 37.2730, 9.8701 |
+| `c5` | Juice Box | Juice bar · Fast casual | 3.9 | 62 | 37.2744, 9.8705 |
+| `n1` | Plage Rimel | Beach · Forest | 4.7 | 276 | 37.2069, 9.9634 |
+| `n2` | La Grotte Beach | Beach · Cliffs | 4.6 | 198 | 37.3396, 9.7522 |
+| `n3` | Ichkeul National Park | Wetland · UNESCO | 4.7 | 158 | 37.1350, 9.6833 |
+| `n4` | Cap Blanc | Cliffs · Viewpoint | 4.9 | 210 | 37.3447, 9.7586 |
+| `a1` | Kasbah of Bizerte | Historic · Fortress | 4.7 | 342 | 37.2763, 9.8763 |
+| `a2` | Great Mosque of Bizerte | Historic · Religious | 4.5 | 214 | 37.2749, 9.8740 |
+| `a3` | Andalusian Quarter | Historic · Walk | 4.4 | 187 | 37.2758, 9.8731 |
+| `a4` | Old Port Boat Tour | Boat · Sunset | 4.6 | 156 | 37.2755, 9.8756 |
+| `s1` | LC Waikiki Bizerte | Fashion · Ready-to-wear | 4.2 | 412 | 37.2733, 9.8735 |
+| `s2` | VOG | Fashion | 4.1 | 187 | 37.2740, 9.8720 |
+| `s3` | HA Bizerte | Fashion · Accessories | 4.0 | 96 | 37.2747, 9.8726 |
+| `s4` | MARQUALUXE | Luxury · Accessories | 4.5 | 64 | 37.2751, 9.8716 |
+| `s5` | Gloricia | Fashion · Women | 4.2 | 88 | 37.2738, 9.8738 |
+| `s6` | Centre Bizerte | Shopping mall | 4.0 | 328 | 37.2725, 9.8695 |
+
+All coordinates sit in the Bizerte governorate (≈ 37.13–37.35 N, 9.68–9.96 E) — none are wrong.
+`CITY_CENTER` is `37.2744, 9.8739`.
+
+These are **real Bizerte businesses and landmarks**, with photos scraped from evendo.com,
+Wikimedia Commons and Facebook (see the curl entries in `.claude/settings.local.json` for
+the provenance trail).
+
+---
+
+## 4. Images
+
+All 51 referenced images are `require()`-d from `assets/home/` and `assets/home/real/` —
+**no remote URLs are actually used**, though the render sites still handle strings:
+
+```js
+source={typeof p.image === 'string' ? { uri: p.image } : p.image}
+```
+
+Keep that guard when you add places; it is what lets you paste a URL for a quick test.
+
+`assets/home/real/` holds 64 files named `<slug>-<n>.jpg` (`oldport-1.jpg`,
+`capblanc-2.jpg`, `crockin-1.jpg`…). **22 of them are orphans** — leftovers from the
+sourcing pass (`cafe-1..5`, `restaurant-1..5`, `shop-1..5`, `bestvoice-1`,
+`centrebizerte-1`, plus 5 long-numeric Facebook filenames in `assets/home/`).
+Safe to delete; they add ~4 MB to every bundle because `app.json` sets
+`assetBundlePatterns: ["**/*"]`.
+
+---
+
+## 5. Adding a place
+
+1. Pick the right array (`foodPlaces`, `coffeePlaces`, …) — that array **is** its category.
+2. Use the next free id in that array's prefix (`f8`, `c6`, …). Ids must be globally unique;
+   `allMapPlaces` and favorites both key on them.
+3. Drop 1 hero + 3 gallery JPEGs into `assets/home/real/` as `<slug>-1..4.jpg`.
+4. Real coordinates — they drive the map pin *and* the Directions deep link.
+5. `price` is required (the badge renders unconditionally); `priceRange`, `phone`,
+   `website` are optional and their UI hides when absent.
+6. `gallery` should have exactly 3 entries. If omitted, `PlaceDetailScreen` falls back to
+   repeating `image` three times.
+
+## 6. Known data issues
+
+- **Duplicates — three pairs, not two.** `3`/`n3` (Ichkeul), `2`/`n4` (Cap Blanc) and
+  `1`/`a4` (Old Port of Bizerte / Old Port Boat Tour) each sit at byte-identical
+  coordinates. Their markers are perfectly coincident, so one of each pair is permanently
+  unclickable on the map. Making `featuredPlaces` an array of ids that references the
+  canonical records — instead of a fourth copy of the data — removes the whole class of
+  problem.
+- **`kind` and `color` exist only on `allMapPlaces`.** A place opened from CategoryList
+  carries neither, so [store.js:70](../store.js#L70) falls back to `#1D2BEF` — the same
+  place gets a different timeline color depending on which screen added it. Put both on the
+  source records and let `allMapPlaces` just concatenate.
+- **`price` has no sortable form.** The Budget chip sorts on `price?.length`, so `'Free'`
+  (4 chars) and `'5 TND'` (5) rank as *more expensive* than `'$$$'` (3). Add a numeric
+  `priceTier: 0|1|2|3` and keep the string for display only.
+- **No `beach` data.** `categories` lists `beach`, but `CategoryListScreen`'s `categoryData`
+  map has no `beach` key, so tapping it falls through to `featuredPlaces`. The beach places
+  (`4` Corniche, `n1` Rimel, `n2` La Grotte) live under Featured/Nature instead.
+- **English only.** `name`, `category` and `description` have no `_fr` / `_ar` variants, so
+  switching language leaves all content in English — only chrome is translated.
+- **Reviews are a count, not records.** The two review cards on PlaceDetail are hardcoded in
+  [PlaceDetailScreen.js:35-50](../screens/PlaceDetailScreen.js#L35-L50) and identical for
+  every place.
+- **`phone`/`website` only on `foodPlaces`.** Coffee, nature, activity and shopping entries
+  have neither, so their contact row never renders.

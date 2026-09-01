@@ -1,0 +1,108 @@
+@startuml MCD_BonPlanBizerte
+' ============================================================================
+' MCD (Modèle Conceptuel de Données) — Bon Plan Bizerte
+' Paste this whole block at https://www.plantuml.com/plantuml/uml
+' ============================================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam classFontSize 13
+skinparam roundCorner 6
+skinparam linetype ortho
+hide circle
+hide methods
+
+title MCD — Bon Plan Bizerte
+
+entity "UTILISATEUR" as U {
+  * id_user : INT <<PK>>
+  --
+  nom : VARCHAR(80)
+  email : VARCHAR(120)
+  mot_de_passe : VARCHAR(255)
+  langue : ENUM(en, fr, ar)
+  mode_theme : ENUM(light, dark)
+  date_inscription : DATE
+}
+
+entity "VILLE" as V {
+  * id_ville : INT <<PK>>
+  --
+  nom : VARCHAR(80)
+  pays : VARCHAR(80)
+}
+
+entity "CATEGORIE" as C {
+  * id_categorie : INT <<PK>>
+  --
+  libelle : VARCHAR(40)
+  icone : VARCHAR(40)
+}
+
+entity "LIEU" as L {
+  * id_lieu : INT <<PK>>
+  --
+  nom : VARCHAR(120)
+  description : TEXT
+  adresse : VARCHAR(255)
+  latitude : DECIMAL(9,6)
+  longitude : DECIMAL(9,6)
+  note_moyenne : DECIMAL(2,1)
+  prix_symbolique : VARCHAR(4)
+  prix_min : INT
+  prix_max : INT
+  telephone : VARCHAR(30)
+  site_web : VARCHAR(255)
+  id_categorie : INT <<FK>>
+  id_ville : INT <<FK>>
+}
+
+entity "PHOTO" as P {
+  * id_photo : INT <<PK>>
+  --
+  url : VARCHAR(255)
+  ordre_affichage : INT
+  id_lieu : INT <<FK>>
+}
+
+entity "AVIS" as A {
+  * id_avis : INT <<PK>>
+  --
+  note : INT
+  commentaire : TEXT
+  date_avis : DATETIME
+  id_user : INT <<FK>>
+  id_lieu : INT <<FK>>
+}
+
+entity "FAVORI" as F {
+  * id_user : INT <<PK,FK>>
+  * id_lieu : INT <<PK,FK>>
+  --
+  date_ajout : DATETIME
+}
+
+entity "ITINERAIRE_ITEM" as I {
+  * id_item : INT <<PK>>
+  --
+  heure : TIME
+  duree : VARCHAR(10)
+  titre : VARCHAR(120)
+  sous_titre : VARCHAR(180)
+  couleur : VARCHAR(7)
+  id_user : INT <<FK>>
+  id_lieu : INT <<FK>>
+}
+
+' Cardinalités
+U "0..n" --o "1..1" V         : vit_dans
+L "0..n" --o "1..1" C         : appartient_a
+L "0..n" --o "1..1" V         : situe_dans
+P "1..n" --o "1..1" L         : illustre
+A "0..n" --o "1..1" U         : depose
+A "0..n" --o "1..1" L         : concerne
+F "0..n" -- "1..1" U          : aime
+F "0..n" -- "1..1" L          : favori_de
+I "0..n" --o "1..1" U         : planifie
+I "0..n" --o "0..1" L         : reference
+
+@enduml
