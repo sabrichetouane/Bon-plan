@@ -305,6 +305,23 @@ const dict = {
   'place.priceFree':    { en: 'Free',         fr: 'Gratuit',      ar: 'مجاني' },
   'place.photo':        { en: 'Photo',        fr: 'Photo',        ar: 'صورة' },
   'place.choosePhoto':  { en: 'Choose a photo', fr: 'Choisir une photo', ar: 'اختر صورة' },
+  'place.photos':       { en: 'Photos',       fr: 'Photos',       ar: 'الصور' },
+  'place.photosHint':   {
+    en: 'Add up to 4 of your own photos. The first one is the main picture.',
+    fr: 'Ajoutez jusqu’à 4 de vos propres photos. La première est la photo principale.',
+    ar: 'أضف حتى 4 صور من عندك. الأولى هي الصورة الرئيسية.',
+  },
+  'place.fromGallery':  { en: 'Gallery',      fr: 'Galerie',      ar: 'المعرض' },
+  'place.takePhoto':    { en: 'Camera',       fr: 'Appareil photo', ar: 'الكاميرا' },
+  'place.noPhotos':     { en: 'No photos yet — tap to add one', fr: 'Aucune photo — appuyez pour en ajouter', ar: 'لا توجد صور — اضغط للإضافة' },
+  'place.mainPhoto':    { en: 'Main',         fr: 'Principale',   ar: 'رئيسية' },
+  'place.makeMain':     { en: 'Make main',    fr: 'Définir principale', ar: 'اجعلها رئيسية' },
+  'place.photoPermissionTitle': { en: 'Permission needed', fr: 'Autorisation requise', ar: 'إذن مطلوب' },
+  'place.photoPermissionMsg': {
+    en: 'Allow Bon Plan to use your photos or camera to add a picture. You can change this in your phone settings.',
+    fr: 'Autorisez Bon Plan à utiliser vos photos ou votre appareil photo. Modifiable dans les réglages du téléphone.',
+    ar: 'اسمح لتطبيق بون بلان باستخدام صورك أو الكاميرا. يمكنك تغيير ذلك من إعدادات الهاتف.',
+  },
   'place.submit':       { en: 'Submit place', fr: 'Proposer le lieu', ar: 'إرسال المكان' },
   'place.submittedTitle': { en: 'Thanks!',    fr: 'Merci !',      ar: 'شكراً!' },
   'place.submittedMsg': {

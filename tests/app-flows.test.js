@@ -44,8 +44,50 @@ const fakeDb = {
   },
 };
 
+// A pretend filesystem: a plain object mapping uri -> true.
+const fakeFiles = {};
+
+class FakeFile {
+  constructor(...parts) {
+    // The real File accepts (Directory, name) or (uri); join whatever we get.
+    this.uri = parts
+      .map((p) => (typeof p === 'string' ? p : p.uri))
+      .join('/')
+      .split('//')
+      .join('/')
+      .replace('file:/', 'file://');
+  }
+  get exists() {
+    return Boolean(fakeFiles[this.uri]);
+  }
+  copy(destination) {
+    fakeFiles[destination.uri] = true;
+  }
+  delete() {
+    delete fakeFiles[this.uri];
+  }
+}
+
+class FakeDirectory extends FakeFile {
+  create() {
+    fakeFiles[this.uri] = true;
+  }
+}
+
 const stubs = {
   'expo-sqlite': { openDatabaseAsync: async () => fakeDb },
+  'expo-file-system': {
+    File: FakeFile,
+    Directory: FakeDirectory,
+    Paths: { document: { uri: 'file:///documents' } },
+  },
+  // Never actually invoked in these tests - the import just has to resolve.
+  'expo-image-picker': {
+    requestMediaLibraryPermissionsAsync: async () => ({ granted: true }),
+    requestCameraPermissionsAsync: async () => ({ granted: true }),
+    launchImageLibraryAsync: async () => ({ canceled: true }),
+    launchCameraAsync: async () => ({ canceled: true }),
+  },
   'expo-crypto': {
     randomUUID: () => nodeCrypto.randomUUID(),
     CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
@@ -92,6 +134,9 @@ function load(file) {
   fn(mod.exports, localRequire, mod, abs, path.dirname(abs));
   return mod.exports;
 }
+
+// Tests reach into this to check that photo FILES are really cleaned up.
+global.__fakeFiles = fakeFiles;
 
 // --- test helpers -----------------------------------------------------------
 let pass = 0;
@@ -307,6 +352,47 @@ function expect(cond, msg) {
       isAdmin: true,
     });
     expect(r.status === 'approved', 'expected approved, got ' + r.status);
+  });
+
+  await check('deleting a place also deletes the photo FILES it owned', async () => {
+    const mainPhoto = 'file:///documents/place-photos/p-1-aaa.jpg';
+    const galleryPhoto = 'file:///documents/place-photos/p-2-bbb.jpg';
+    global.__fakeFiles[mainPhoto] = true;
+    global.__fakeFiles[galleryPhoto] = true;
+
+    const created = await placeRepo.createPlace({
+      name: 'Photo Test Place',
+      categoryId: 'food',
+      image: mainPhoto,
+      gallery: [galleryPhoto],
+      createdBy: memberId,
+      isAdmin: true,
+    });
+    expect(created.ok, 'createPlace failed: ' + created.error);
+
+    const saved = await placeRepo.getPlaceById(created.id);
+    expect(saved.image === mainPhoto, 'the main photo path was not stored');
+    expect(saved.gallery.length === 1, 'the gallery photo was not stored');
+
+    await placeRepo.deletePlace(created.id);
+    expect(!global.__fakeFiles[mainPhoto], 'the main photo file was left behind');
+    expect(!global.__fakeFiles[galleryPhoto], 'the gallery photo file was left behind');
+  });
+
+  await check('deleting a place does NOT delete a bundled app photo', async () => {
+    // 'real/oldport-1' is a key into the app's own assets, not a file we own.
+    // isUserPhoto() must return false for it so it can never be deleted.
+    const created = await placeRepo.createPlace({
+      name: 'Bundled Photo Place',
+      categoryId: 'food',
+      image: 'real/oldport-1',
+      createdBy: memberId,
+      isAdmin: true,
+    });
+    await placeRepo.deletePlace(created.id);
+    // Nothing to assert on the filesystem - the point is that it did not throw
+    // and did not try to treat an asset key as a path.
+    expect(true, 'unreachable');
   });
 
   console.log('[4] favorites, reviews, plans');

@@ -29,8 +29,25 @@ excluded and must not be added back:**
   it is an HTML error page saved with a `.jpg` extension by one of the original
   downloads. Requiring it fails the build with "unsupported file type".
 
-`resolveImage()` also accepts an `http`/`file:`/`data:` URL, which is what a
-real photo picker would store later.
+`resolveImage()` also accepts an `http`/`file:`/`data:` URL — and that is now
+the normal case for anything a **user** adds.
+
+## Two kinds of photo
+
+| Stored value | What it is | Who owns it |
+| --- | --- | --- |
+| `'real/oldport-1'` | a key into `ASSETS` above | shipped with the app |
+| `'file:///.../place-photos/p-123-ab.jpg'` | a real file on the phone | uploaded by a user |
+
+A user adding a place picks from their own gallery or takes a photo. See
+[../media/photoStorage.js](../media/photoStorage.js) — the picked file is
+**copied** out of the phone's cache into the app's documents folder first,
+because the cache can be emptied by the system at any time and the photo would
+silently vanish.
+
+`isUserPhoto(value)` distinguishes the two, and `placeRepo.deletePlace` uses it
+to delete the real files while never touching a bundled asset. The database's
+own `ON DELETE CASCADE` removes the photo *rows*; it cannot remove *files*.
 
 ---
 

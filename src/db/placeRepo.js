@@ -12,6 +12,9 @@
 // ============================================================================
 
 import { getDb, nowIso } from './database';
+// Used by deletePlace to remove the actual photo FILES a user uploaded, which
+// the database's own ON DELETE rules cannot reach.
+import { deletePhoto, isUserPhoto } from '../media/photoStorage';
 
 // ---------------------------------------------------------------------------
 // PLACE_COLUMNS - the columns every screen expects, with SQL names translated
@@ -379,12 +382,32 @@ export async function setPlaceStatus({ id, status }) {
 
 // deletePlace(id) - remove a place for good.
 //
-// The ON DELETE rules in schema.js do the cleanup for us: its photos,
-// favorites and comments go too, and any plan row that referenced it keeps
-// its text but loses the link.
+// The ON DELETE rules in schema.js clean up the DATABASE for us: its photo
+// rows, favorites and comments go too, and any plan row that referenced it
+// keeps its text but loses the link.
+//
+// What the database CANNOT clean up is the photo FILES on the phone. If the
+// user uploaded their own pictures, those are real files in the app's storage,
+// and deleting the row would just orphan them - they would take up space
+// forever with nothing pointing at them. So we collect the paths first, delete
+// the row, then delete the files.
 export async function deletePlace(id) {
   const db = await getDb();
+
+  // Gather every photo path BEFORE the rows disappear.
+  const main = await db.getFirstAsync('SELECT image FROM places WHERE id = ?', [id]);
+  const gallery = await db.getAllAsync('SELECT image FROM place_photos WHERE place_id = ?', [id]);
+
   await db.runAsync('DELETE FROM places WHERE id = ?', [id]);
+
+  // Now the files. isUserPhoto() makes this safe: it is false for a bundled
+  // photo key like 'real/oldport-1', so the pictures that shipped with the app
+  // can never be deleted by mistake.
+  const paths = [main?.image, ...gallery.map((row) => row.image)];
+  for (const path of paths) {
+    if (isUserPhoto(path)) deletePhoto(path);
+  }
+
   return { ok: true };
 }
 

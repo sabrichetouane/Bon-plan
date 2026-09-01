@@ -11,14 +11,25 @@
 // The decision is made inside placeRepo.createPlace, NOT in this screen, so
 // no future screen can accidentally skip it.
 //
-// ABOUT THE PHOTO: a normal app would open the camera roll here. That needs
-// expo-image-picker plus permission handling, so instead the user picks from
-// the photos already bundled with the app. The database column holds a text
-// key either way, so swapping in a real picker later changes only this screen.
+// PHOTOS: the user adds their OWN pictures, from the phone's gallery or its
+// camera. Each one is copied into the app's private storage and belongs to
+// this place alone - see media/photoStorage.js for why the copy matters.
+// The first photo is the main picture; the rest become the gallery.
 // ============================================================================
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -27,14 +38,15 @@ import { useTheme, radius, spacing } from '../theme/colors';
 // returns is null in English and French, so using it costs nothing there.
 import { useRTL } from '../theme/rtl';
 import { useStore, useT } from '../store';
-import { listAssetKeys, resolveImage } from '../data/assetRegistry';
+import { resolveImage } from '../data/assetRegistry';
+import * as photoStorage from '../media/photoStorage';
 import * as placeRepo from '../db/placeRepo';
 
 import Screen from '../components/Screen';
 import ScreenHeader from '../components/ScreenHeader';
 import FormField from '../components/FormField';
 import Chip from '../components/Chip';
-import { PrimaryButton } from '../components/Buttons';
+import { PrimaryButton, SecondaryButton } from '../components/Buttons';
 
 // The price levels a user can choose. `tier` is the NUMBER stored for sorting;
 // `label` is only what gets shown. Keeping them apart is what fixed the old
@@ -65,14 +77,15 @@ export default function AddPlaceScreen({ navigation }) {
   const [phone, setPhone] = useState('');
   const [website, setWebsite] = useState('');
   const [priceTier, setPriceTier] = useState(0);
-  const [image, setImage] = useState(null);
+  // The user's chosen photos, as permanent file:// paths. The FIRST one is
+  // the main picture; the others become the place's gallery.
+  const [photos, setPhotos] = useState([]);
+  // True while the picker or the camera is open, so the buttons cannot be
+  // pressed twice and the empty box can show a spinner.
+  const [busyPhotos, setBusyPhotos] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-
-  // The bundled photos the user can pick from. useMemo so the list is built
-  // once rather than on every keystroke elsewhere in the form.
-  const photoChoices = useMemo(() => listAssetKeys('real/'), []);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,6 +95,61 @@ export default function AddPlaceScreen({ navigation }) {
         .catch((e) => console.warn('[AddPlaceScreen] categories failed:', e));
     }, [])
   );
+
+  // =========================================================================
+  // PHOTOS
+  // =========================================================================
+
+  // addPhotos(result) - shared ending for both the gallery and the camera.
+  const addPhotos = (result) => {
+    if (!result.ok) {
+      // The only failure either one reports is the user refusing permission.
+      Alert.alert(t('place.photoPermissionTitle'), t('place.photoPermissionMsg'));
+      return;
+    }
+    // result.uris is empty when the user simply backed out - not an error.
+    if (result.uris.length === 0) return;
+
+    // Append, keeping what was already chosen. The cap keeps a submission
+    // reasonable and matches the 1 main + 3 gallery shape the app displays.
+    setPhotos((current) => [...current, ...result.uris].slice(0, 4));
+  };
+
+  const handlePickFromGallery = async () => {
+    setBusyPhotos(true);
+    try {
+      addPhotos(await photoStorage.pickFromLibrary({ limit: 4 - photos.length }));
+    } catch (e) {
+      console.warn('[AddPlaceScreen] gallery failed:', e);
+      Alert.alert(t('common.error'), t('error.saveFailed'));
+    } finally {
+      setBusyPhotos(false);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    setBusyPhotos(true);
+    try {
+      addPhotos(await photoStorage.takePhoto());
+    } catch (e) {
+      console.warn('[AddPlaceScreen] camera failed:', e);
+      Alert.alert(t('common.error'), t('error.saveFailed'));
+    } finally {
+      setBusyPhotos(false);
+    }
+  };
+
+  // Remove a photo AND delete the copied file, so a picture the user changed
+  // their mind about does not sit in the app's storage forever.
+  const handleRemovePhoto = (uri) => {
+    photoStorage.deletePhoto(uri);
+    setPhotos((current) => current.filter((item) => item !== uri));
+  };
+
+  // Promote a photo to be the main one by moving it to the front of the list.
+  const handleMakeMain = (uri) => {
+    setPhotos((current) => [uri, ...current.filter((item) => item !== uri)]);
+  };
 
   // -------------------------------------------------------------------------
   // handleSubmit - validate, save, then explain what happens next.
@@ -111,7 +179,10 @@ export default function AddPlaceScreen({ navigation }) {
         website,
         priceTier,
         price: price.labelKey ? t(price.labelKey) : price.label,
-        image,
+        // The first photo is the main picture, the rest are the gallery.
+        // .slice(1) is everything EXCEPT the first item.
+        image: photos[0] || null,
+        gallery: photos.slice(1),
         createdBy: userId,
         // This flag is what decides pending vs approved, inside the repository.
         isAdmin,
@@ -253,36 +324,94 @@ export default function AddPlaceScreen({ navigation }) {
             ))}
           </View>
 
-          {/* PHOTO PICKER - a horizontal strip of the bundled photos. */}
-          <Text style={[styles.label, styles.spaced, rtl.text]}>{t('place.photo')}</Text>
-          <Text style={[styles.hint, rtl.text]}>{t('place.choosePhoto')}</Text>
+          {/* ---------- PHOTOS ----------
+              Your OWN photos, from your phone. Nothing is shared with another
+              place: each picture is copied into the app's private storage and
+              belongs to this place only.
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.photoRow}
-          >
-            {photoChoices.map((key) => {
-              const isSelected = key === image;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  onPress={() => setImage(key)}
-                  style={[styles.photoTile, isSelected && styles.photoTileActive]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                >
-                  <Image source={resolveImage(key)} style={styles.photo} />
-                  {/* A tick over the chosen one. */}
-                  {isSelected && (
-                    <View style={styles.photoCheck}>
-                      <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+              The first photo is the main one - the picture shown on the cards
+              and at the top of the place's page. The rest become its gallery. */}
+          <Text style={[styles.label, styles.spaced, rtl.text]}>{t('place.photos')}</Text>
+          <Text style={[styles.hint, rtl.text]}>{t('place.photosHint')}</Text>
+
+          {/* The two ways to add one. */}
+          <View style={[styles.photoButtons, rtl.row]}>
+            <SecondaryButton
+              title={t('place.fromGallery')}
+              icon="images-outline"
+              onPress={handlePickFromGallery}
+              disabled={busyPhotos}
+              full={false}
+              style={styles.flexOne}
+            />
+            <SecondaryButton
+              title={t('place.takePhoto')}
+              icon="camera-outline"
+              onPress={handleTakePhoto}
+              disabled={busyPhotos}
+              full={false}
+              style={styles.flexOne}
+            />
+          </View>
+
+          {photos.length === 0 ? (
+            // Nothing chosen yet. A dashed empty box reads as "something goes
+            // here" rather than looking like a mistake.
+            <TouchableOpacity
+              style={styles.photoEmpty}
+              onPress={handlePickFromGallery}
+              disabled={busyPhotos}
+            >
+              {busyPhotos ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <>
+                  <Ionicons name="image-outline" size={30} color={colors.textMuted} />
+                  <Text style={styles.photoEmptyText}>{t('place.noPhotos')}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            // The chosen photos, big enough to actually judge. Two per row on a
+            // phone rather than the tiny 96pt thumbnails there were before.
+            <View style={[styles.photoGrid, rtl.row]}>
+              {photos.map((uri, index) => (
+                <View key={uri} style={styles.photoCell}>
+                  <Image source={resolveImage(uri)} style={styles.photoImage} />
+
+                  {/* The first photo is the one used everywhere else. */}
+                  {index === 0 && (
+                    <View style={styles.mainBadge}>
+                      <Text style={styles.mainBadgeText}>{t('place.mainPhoto')}</Text>
                     </View>
                   )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+
+                  {/* Remove it. This also deletes the copied file, so a photo
+                      the user changed their mind about does not sit on their
+                      phone forever. */}
+                  <TouchableOpacity
+                    style={styles.photoRemove}
+                    onPress={() => handleRemovePhoto(uri)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.delete')}
+                  >
+                    <Ionicons name="close" size={15} color="#fff" />
+                  </TouchableOpacity>
+
+                  {/* Any photo can be promoted to main without re-picking. */}
+                  {index !== 0 && (
+                    <TouchableOpacity
+                      style={styles.makeMain}
+                      onPress={() => handleMakeMain(uri)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.makeMainText}>{t('place.makeMain')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* A plain explanation of what happens after Submit. */}
           <View style={[styles.note, rtl.row]}>
@@ -327,6 +456,7 @@ export default function AddPlaceScreen({ navigation }) {
 const makeStyles = (colors) =>
   StyleSheet.create({
     flex: { flex: 1 },
+    flexOne: { flex: 1 },
     scroll: { padding: spacing.xl, paddingBottom: spacing.xxl },
     spaced: { marginTop: spacing.md },
 
@@ -346,42 +476,78 @@ const makeStyles = (colors) =>
       marginBottom: spacing.lg,
     },
 
-    photoRow: {
-      gap: 10,
-      paddingVertical: 4,
-      paddingBottom: spacing.lg,
-      // THIS LINE IS THE BUG FIX.
-      // Inside a HORIZONTAL ScrollView, React Native stretches children on the
-      // cross axis (vertically) by default - alignItems is 'stretch'. Because
-      // the tiles below had no fixed height, they stretched to fill whatever
-      // vertical space was going, and the photos blew up to fill the screen.
-      // That also pushed the Submit button far below the fold, which is why it
-      // looked like there was no submit button at all.
-      // 'flex-start' tells the tiles to be exactly as tall as their content.
-      alignItems: 'flex-start',
-    },
-    photoTile: {
+    // --- PHOTOS ---
+    photoButtons: { flexDirection: 'row', gap: 10, marginBottom: spacing.md },
+
+    // The dashed box shown before any photo is chosen. Dashed borders read as
+    // "something belongs here", where a solid one would look like a real card.
+    photoEmpty: {
+      height: 130,
       borderRadius: radius.md,
-      borderWidth: 2,
-      borderColor: 'transparent',
-      overflow: 'hidden',
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginBottom: spacing.lg,
     },
-    photoTileActive: { borderColor: colors.primary },
-    photo: {
-      // A real height, not aspectRatio. aspectRatio only works when the OTHER
-      // dimension is already settled; inside a stretching row it is not, and
-      // the image ends up any size at all.
-      width: 96,
-      height: 72,
+    photoEmptyText: { fontSize: 12, color: colors.textMuted },
+
+    // Two photos per row. '48%' rather than a pixel width so it fits any
+    // screen, and flexWrap moves the third and fourth onto a second row.
+    photoGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: '4%',
+      rowGap: spacing.md,
+      marginBottom: spacing.lg,
+    },
+    photoCell: {
+      width: '48%',
+      borderRadius: radius.md,
+      overflow: 'hidden',
       backgroundColor: colors.surface,
     },
-    photoCheck: {
+    // A real height, not aspectRatio - see the note in the gallery styles of
+    // PlaceDetailScreen for why. 4:3 at roughly half a phone's width, which is
+    // big enough to actually see what the photo is.
+    photoImage: { width: '100%', height: 120, backgroundColor: colors.surface },
+
+    mainBadge: {
       position: 'absolute',
-      top: 4,
-      right: 4,
-      backgroundColor: '#fff',
-      borderRadius: 11,
+      bottom: 6,
+      left: 6,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
     },
+    mainBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+
+    photoRemove: {
+      position: 'absolute',
+      top: 6,
+      right: 6,
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    makeMain: {
+      position: 'absolute',
+      bottom: 6,
+      left: 6,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+    },
+    makeMainText: { color: '#fff', fontSize: 10, fontWeight: '600' },
 
     note: {
       flexDirection: 'row',

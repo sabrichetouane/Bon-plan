@@ -30,7 +30,14 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Bon Plan Bizerte needs access to your photos so you can add pictures to a place you submit.",
+          "cameraPermission": "Bon Plan Bizerte needs access to your camera so you can photograph a place you submit."
+        }
+      ]
     ]
   }
 }
